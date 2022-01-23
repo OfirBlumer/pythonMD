@@ -69,6 +69,7 @@ class initialization():
             mass = self._manager.masses[i][0]
             std = numpy.sqrt((kT / mass))
             V = numpy.sqrt(numpy.random.normal(0,std)**2+numpy.random.normal(0,std)**2+numpy.random.normal(0,std)**2)
+            V = V if numpy.random.uniform() > 0.5 else -V
             if d==1:
                 Momentums.append([V*mass])
             elif d==2:

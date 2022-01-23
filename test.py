@@ -3,15 +3,17 @@ from unum.units import *
 import matplotlib.pyplot as plt
 
 # test potential
-myManager = manager(N=1,forces=["CoordsEquationPotential"],boundaries=[100],dimensions=1)
-myManager.initialize(positions={"positionsList":[[1.]]},masses={"Ns":[1],"masses":[1e-26*kg]},
-                     momentum={"temperature":0*K},atomTypes={"Ns":[1],"types":[1]})
-data = myManager.run(1000,forceEquations=["-1e-5*q*(1-100*numpy.exp(-q**2))"],restartMethod="Poisson",restartRate=0.05,
-                          potentialEquations=["-5e-6*(q**2+100*numpy.exp(-q**2))"],
-                          printStats=1,savePositions=1,Langevin=False,gamma=10**25,temperature=300*K)
-plt.plot([p[0] for p in data["positions"]])
-
-plt.show()
+# myManager = manager(N=1,forces=["CoordsEquationPotential"],boundaries=[100],dimensions=1)
+# myManager.initialize(positions={"positionsList":[[1.]]},masses={"Ns":[1],"masses":[1e-26*kg]},
+#                      momentum={"temperature":0*K},atomTypes={"Ns":[1],"types":[1]})
+# data = myManager.run(1000,forceEquations=["-1e-5*q*(1-100*numpy.exp(-q**2))"],
+#                           potentialEquations=["-5e-6*(q**2+100*numpy.exp(-q**2))"],
+#                           printStats=1,savePositions=1,Langevin=False,gamma=10**25,temperature=300*K)
+# plt.plot([p[0]*3000 for p in data["positions"]])
+# plt.plot(data["kineticEnergy"])
+# plt.plot(data["potentialEnergy"])
+# plt.plot(data["totalEnergy"])
+# plt.show()
 
 # test LJ
 # myManager = manager(forces=["LJ"],boundaries=[11.3,11.3,11.3],position="xyz",atomType="xyz",dimensions=3)

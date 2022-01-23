@@ -1,6 +1,6 @@
-from initialization import initialization
-from propagator import propagator
-from forceCalculator import forceCalculator
+from .initialization import initialization
+from .propagator import propagator
+from .forceCalculator import forceCalculator
 from unum.units import *
 import numpy
 import os
@@ -95,7 +95,7 @@ class manager():
         atomTypes = positions if atomTypes is None else atomTypes
         self.atomTypes = self._initialize.getAtomTypes(**atomTypes)
 
-    def run(self,Niterations,savePositions=100,printStats=100,dt=None,restartMethod=None,**kwargs):
+    def run(self,Niterations,savePositions=100,printStats=100,dt=None,restartMethod=None,stopCriterion=None,**kwargs):
         print(f"Start running for {Niterations} iterations")
         print("Timestep Temperature KineticEnergy PotentialEnergy TotalEnergy")
         self.dt = self.dt if dt is None else dt
@@ -105,6 +105,10 @@ class manager():
         potentialEnergyList = []
         totalEnergyList = []
         for i in range(Niterations):
+            if stopCriterion is not None:
+                if eval(stopCriterion):
+                    print(f"Stopped because fulfilled criterion after {i} steps")
+                    break
             restarted = self._prop.restart(restartMethod=restartMethod,iterationStep=i,**kwargs)
             if restarted:
                 self.positions = self._initialize.getPositions(**self._initialProps["positions"])

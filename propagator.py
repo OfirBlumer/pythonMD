@@ -17,14 +17,14 @@ class propagator():
     def propagate_VelocityVerlet(self, Langevin=False,gamma=None,temperature=None,**kwargs):
 
         if Langevin:
-            kT = 1.38e-23 * temperature.asNumber(K)
+            kT = 8.310549580257024e-7 * temperature.asNumber(K)
             exponent = numpy.exp((-gamma*self._manager.dt/2))
             self._manager.momentums = self._manager.momentums*exponent+((self._manager.masses*kT)*(1-exponent**2))**0.5*numpy.random.standard_normal()
         Fs = self._manager.forces.calculateForce(**kwargs)
-        self._manager.momentums -= self._manager.dt*Fs/2
+        self._manager.momentums += self._manager.dt*Fs/2
         self._manager.positions+=self._manager.dt*self._manager.momentums/self._manager.masses
         Fs = self._manager.forces.calculateForce(**kwargs)
-        self._manager.momentums -= self._manager.dt*Fs/2
+        self._manager.momentums += self._manager.dt*Fs/2
         if Langevin:
             self._manager.momentums = self._manager.momentums * exponent + (
                         (self._manager.masses * kT) * (1 - exponent ** 2)) ** 0.5 * numpy.random.standard_normal()
