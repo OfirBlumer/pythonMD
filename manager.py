@@ -98,18 +98,29 @@ class manager():
         print("Timestep Temperature KineticEnergy PotentialEnergy TotalEnergy")
         self.dt = self.dt if dt is None else dt
         positions = []
+        Ts = []
+        kineticEnergyList = []
+        potentialEnergyList = []
+        totalEnergyList = []
         for i in range(Niterations):
             self._prop.propagate(**kwargs)
             if i >= savePositions and i%savePositions==0:
                 positions.append(numpy.copy(self.positions))
             if i >= printStats and i%printStats==0:
                 kineticEnergies = self.momentums**2/2/self.masses
-                kineticEnergy = (sum(kineticEnergies) if self.dimensions==1 else \
-                                sum([sum([e**2 for e in energy])**0.5 for energy in kineticEnergies])*U*ANGSTROM**2*fs**(-2)).asNumber(J)
+                if self.dimensions == 1:
+                    kineticEnergy = (sum(sum(kineticEnergies))*U*ANGSTROM**2*fs**(-2)).asNumber(J)
+                else:
+                    kineticEnergy = (sum([sum([e**2 for e in energy])**0.5 for energy in kineticEnergies])*U*ANGSTROM**2*fs**(-2)).asNumber(J)
                 potentialEnergy = (self.forces.calculatePotentialEnergy(**kwargs)*U*ANGSTROM**2*fs**(-2)).asNumber(J)
                 T = 2*kineticEnergy/(1.38e-23)/self.dimensions/self.N
+                Ts.append(T),
+                kineticEnergyList.append(kineticEnergy*6.02e23/self.N)
+                potentialEnergyList.append(potentialEnergy*6.02e23/self.N)
+                totalEnergyList.append((kineticEnergy+potentialEnergy)*6.02e23/self.N)
                 print(i,T,kineticEnergy*6.02e23/self.N,potentialEnergy*6.02e23/self.N,(kineticEnergy+potentialEnergy)*6.02e23/self.N)
-        return positions
+        return {"positions":positions,"T":Ts,"kineticEnergy":kineticEnergyList,
+                "potentialEnergy":potentialEnergyList, "totalEnergy":totalEnergyList}
 
     def makePositionsFile(self,positions,save=None):
         fileString = ""

@@ -45,7 +45,7 @@ class forceCalculator():
                 rad = sum([r**2 for r in neighboursDistList[particle][couple]])**0.5
                 epsilon = LJ[f"{self._manager.atomTypes[particle]}-{self._manager.atomTypes[neighboursList[particle][couple]]}"]["epsilon"]
                 sigma6 = (LJ[f"{self._manager.atomTypes[particle]}-{self._manager.atomTypes[neighboursList[particle][couple]]}"]["sigma"])**6
-                Fs[particle] += neighboursDistList[particle][couple]/rad*24*epsilon*(2*sigma6**2/(rad**13)-sigma6/(rad ** 7))
+                Fs[particle] += neighboursDistList[particle][couple]/rad*24*epsilon*(-2*sigma6**2/(rad**13)+sigma6/(rad ** 7))
         return numpy.array(Fs)
 
     def calculatePotentialEnergy(self, **kwargs):
@@ -59,8 +59,8 @@ class forceCalculator():
         for qs, m in zip(self._manager.positions, self._manager.masses):
             newF = []
             for q, equation in zip(qs, potentialEquations):
-                newF.append(eval(equation)**2)
-            potE += sum(newF)**0.5
+                newF.append(eval(equation))
+            potE += sum(newF)
         return potE
 
     def calculatePotentialEnergy_LJ(self, LJ,**kwargs):
