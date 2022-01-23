@@ -28,3 +28,9 @@ class propagator():
         if Langevin:
             self._manager.momentums = self._manager.momentums * exponent + (
                         (self._manager.masses * kT) * (1 - exponent ** 2)) ** 0.5 * numpy.random.standard_normal()
+
+    def restart(self, restartMethod,**kwargs):
+        return False if restartMethod is None else getattr(self, f"restart_{restartMethod}")(**kwargs)
+
+    def restart_Poisson(self,restartRate,**kwargs):
+        return self._manager.dt*restartRate>numpy.random.uniform()
