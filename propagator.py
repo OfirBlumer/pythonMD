@@ -22,7 +22,7 @@ class propagator():
             self._manager.momentums = self._manager.momentums*exponent+((self._manager.masses*kT)*(1-exponent**2))**0.5*numpy.random.standard_normal()
         Fs = self._manager.forces.calculateForce(**kwargs)
         self._manager.momentums += self._manager.dt*Fs/2
-        self._manager.positions+=self._manager.dt*self._manager.momentums/self._manager.masses*10e10
+        self._manager.positions+=self._manager.dt*self._manager.momentums/self._manager.masses
         Fs = self._manager.forces.calculateForce(**kwargs)
         self._manager.momentums += self._manager.dt*Fs/2
         if Langevin:
