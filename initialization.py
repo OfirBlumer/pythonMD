@@ -1,67 +1,98 @@
 from unum.units import *
 import numpy
-import pandas
+
 class initialization():
 
-    _initializ = None
+    _momentum = None
     _manager = None
 
-    def __init__(self,initializ,manager):
-        self._initializ=initializ
+    def __init__(self,momentum,manager):
+        """
+        This class manages the initialization of the simulation's system
+        :param momentum: The methods by which the momentum values are calculated;
+                         currently the only option is "MaxwellBoltzmann". (str)
+        :param manager:  The simulation's main manager (manager class)
+        """
+        self._momentum=momentum
         self._manager=manager
 
-    def getPositions(self,**kwargs):
-        print("Getting positions using ", self._initializ['position'])
-        return getattr(self,f"getPositions_{self._initializ['position']}")(**kwargs)
+    def getPositions(self,positions):
+        """
+        Sets the number of atoms in the system and the initial positions
+        :param positions: The positions; currently supports a list of list or a name of a xyz file (list or str)
+        :return: the positions as a numpy array
+        """
+        print("Reading positions")
+        if isinstance(positions,list):
+            ret = numpy.array(positions)
+        elif isinstance(positions,str):
+            if positions.split(".")[-1]=="xyz":
+                with open(positions, "r") as file:
+                    lines = file.readlines()
+                self._manager.N = len(lines) - 2
+                print(f"Reading {self._manager.N} atoms")
+                positionsList = [[] for l in range(len(lines) - 2)]
+                for i in range(len(lines) - 2):
+                    for val in lines[i + 2].split()[1:]:
+                        positionsList[i].append(float(val))
+                ret = numpy.array(positionsList)
+            else:
+                raise ValueError("Currently, only .xyz are available")
+        return ret
 
-    def getMasses(self,**kwargs):
-        print("Getting masses using ", self._initializ['mass'])
-        return getattr(self,f"getMasses_{self._initializ['mass']}")(**kwargs)
-
-    def getMasses_lists(self,Ns,masses,**kwargs):
+    def getMasses(self,mass):
+        """
+        Sets the masses in the system.
+        :param mass: The mass of atoms; currently supports a single value for uniform mass
+                     or a list of masses for all atoms. (int/float*unum mass unit or list of those)
+        :return: the masses as a numpy array
+        """
         newMasses = []
-        for i in range(len(Ns)):
-            for n in range(Ns[i]):
-                newMasses.append([masses[i].asNumber(U) for d in range(self._manager.dimensions)])
+        mass = mass.asNumber(U)
+        if isinstance(mass, int) or isinstance(mass, float):
+            for n in range(self._manager.N):
+                newMasses.append([mass for d in range(self._manager.dimensions)])
+        elif isinstance(mass, list):
+            for massVal in mass:
+                newMasses.append([massVal.asNumber(U) for d in range(self._manager.dimensions)])
         return numpy.array(newMasses)
 
-    def getAtomTypes(self,**kwargs):
-        return getattr(self,f"getAtomTypes_{self._initializ['atomType']}")(**kwargs)
-
-    def getAtomTypes_lists(self,Ns,types,**kwargs):
-        newTypes = []
-        for i in range(len(Ns)):
-            for n in range(Ns[i]):
-                newTypes.append(types[i])
-        return numpy.array(newTypes)
-
-    def getAtomTypes_xyz(self, positionsFile, **kwargs):
-        with open(positionsFile,"r") as file:
-            lines = file.readlines()
-        types = []
-        for l in lines[2:]:
-            types.append(l.split()[0])
-        return numpy.array(types)
-
-    def getPositions_list(self,positionsList,**kwargs):
-        return numpy.array(positionsList)
-
-    def getPositions_xyz(self,positionsFile,**kwargs):
-        with open(positionsFile,"r") as file:
-            lines = file.readlines()
-        self._manager.N = len(lines)-2
-        print(f"Reading {self._manager.N} atoms")
-        positionsList =[[] for l in range(len(lines)-2)]
-        for i in range(len(lines)-2):
-            for val in lines[i+2].split()[1:]:
-                positionsList[i].append(float(val))
-        return numpy.array(positionsList)
+    def getAtomTypes(self,positions,types=None):
+        """
+        Sets the atom types in the system.
+        :param positions: The positions delivered for getPositions; if it is a xyz file it is used for extracting the atoms types
+        :param types: If the types weren't set by the positions, it is set by this param;
+                      currently only supports a list of types as strings for all atoms
+        :param kwargs:
+        :return:
+        """
+        if isinstance(positions,str):
+            if positions.split(".")[-1]=="xyz":
+                with open(positions, "r") as file:
+                    lines = file.readlines()
+                types = []
+                for l in lines[2:]:
+                    types.append(l.split()[0])
+                ret = numpy.array(types)
+        elif isinstance(types,list):
+            ret = numpy.array(types)
+        return ret
 
     def getMomentums(self,**kwargs):
-        print("Calculating Momentums using ",self._initializ['momentum'])
-        return getattr(self,f"getMomentums_{self._initializ['momentum']}")(**kwargs)
+        """
+        Sets the momentum values in the system.
+        :param kwargs: any parameters needed for the calculation of the momentum
+        :return: the momentum as a numpy array
+        """
+        print("Calculating Momentums using ",self._momentum)
+        return getattr(self,f"getMomentums_{self._momentum}")(**kwargs)
 
     def getMomentums_MaxwellBoltzmann(self, temperature):
+        """
+        Sets the momentum using the Maxwell-Boltzmann distribution
+        :param temperature: The temperature of the system (int/float*unum units of temperature)
+        :return: the momentum as a numpy array
+        """
         kT = 8.310549580257024e-7*temperature.asNumber(K)
         Momentums = []
         d = self._manager.dimensions

@@ -4,6 +4,7 @@ from .forceCalculator import forceCalculator
 from unum.units import *
 import numpy
 import os
+
 class manager():
 
     _prop = None
@@ -67,7 +68,6 @@ class manager():
     @forces.setter
     def forces(self,newforces):
         self._forces=newforces
-
     @property
     def dt(self):
         return self._dt
@@ -75,30 +75,76 @@ class manager():
     def dt(self,newdt):
         self._dt=newdt
 
-    def __init__(self,N=None,boundaries=None,boundariesType="periodic",prop="VelocityVerlet",position="list",
-                 momentum="MaxwellBoltzmann",mass="lists",atomType="lists",forces=["LJ"],dimensions=1,dt=1*fs,cutoff=10*ANGSTROM):
-        self._initialize = initialization(initializ={"position":position,"momentum":momentum,"mass":mass,"atomType":atomType},manager=self)
+    def __init__(self,boundaries=None,boundariesType="periodic",prop="VelocityVerlet",momentum="MaxwellBoltzmann",
+                 forces=["LJ"],dimensions=1,dt=1*fs,cutoff=10*ANGSTROM):
+        """
+        This class manage the simulation. It holds the simulation data and
+        calls the acting functions that propagates the simulation.
+
+        :param boundaries: A list of the high boundaries of the simulation box coordinates (the minimum is 0).
+                           The list must match in length the number of dimensions. The default is None,
+                           which doesn't fit periodic boundary conditions. (None or list of int/float)
+
+        :param boundariesType: The type of boundaries condition. Currently, only periodic conditions
+                               are implemented. Any input other than the default "periodic" would
+                               lead to a simulation with no boundaries. (None or str)
+
+        :param prop: The type of propagator used in the simulation.
+                     Currently, only VelocityVerlet is available. (str)
+
+        :param momentum: The methods by which the momentum values are calculated;
+                         currently the only option is "MaxwellBoltzmann". (str)
+
+        :param forces: A list of forces types;
+                       Currently the available forces are Lennard-Jones ("LJ") and
+                       a user-defined equation ("CoordsEquationPotential") (list of str)
+
+        :param dimensions: The number of dimensions in the simulation (int)
+
+        :param dt: The time step's value; default is 1fs (int/float*unum time unit)
+
+        :param cutoff: The cutoff used in the forces; default is 10 Angstrom (int/float*unum length unit)
+        """
+        self._initialize = initialization(momentum=momentum,manager=self)
         self._dimensions = dimensions
-        self._N=N
         self._dt = dt.asNumber(fs)
         self._prop = propagator(prop=prop,manager=self)
         self._forces = forceCalculator(forces=forces,manager=self,cutoff=cutoff)
         self._boundaries=boundaries
         self._boundariesType=boundariesType
 
-    def initialize(self,positions,masses,momentum,atomTypes=None):
-        print("Initializing Molecular Dynamics Simulation")
-        self._initialProps = {"positions":positions,"momentum":momentum}
-        self.positions = self._initialize.getPositions(**positions)
-        self.masses = self._initialize.getMasses(**masses)
-        self.momentums = self._initialize.getMomentums(**momentum)
-        atomTypes = positions if atomTypes is None else atomTypes
-        self.atomTypes = self._initialize.getAtomTypes(**atomTypes)
+    def initialize(self,positions,masses,types=None,**kwargs):
+        """
+        Initialize the system
 
-    def run(self,Niterations,savePositions=100,printStats=100,dt=None,restartMethod=None,stopCriterion=None,**kwargs):
+        :param positions: see initialization class getPositions doc
+        :param masses: see initialization class getMasses doc
+        :param types: see initialization class getAtomTypes doc
+        :param kwargs: Additional parameters that may be required by initialization class' getMomentums
+        """
+        print("Initializing Molecular Dynamics Simulation")
+        self.positions = self._initialize.getPositions(positions)
+        self.masses = self._initialize.getMasses(masses)
+        self.momentums = self._initialize.getMomentums(**kwargs)
+        self.atomTypes = self._initialize.getAtomTypes(positions=positions,types=types)
+
+    def run(self, Niterations, savePositions=100, printStats=100, resetMethod=None, stopCriterion=None, **kwargs):
+        """
+        The simulation's main function, in which the main loop is executed
+
+        :param Niterations: number of steps in the simulation (int)
+        :param savePositions: the rate at which the positions are saved, each savePositions steps (int)
+        :param printStats: the rate at which the temperatures and energies are printed and saved, each savePositions steps (int)
+        :param resetMethod: optional, default is None.
+                            Else, the method by which resetting occurs (see propagator class' reset function)
+        :param stopCriterion: A str of a Boolean statement that is used for an if check;
+                              stops the simulation of the criterion is reached
+        :param kwargs: Any additional parameters that may be needed for the resetting,
+                       propagation or calculation of potential energy
+        :return: a dictionary with a list of positions , temperatures and energies at different times
+        """
         print(f"Start running for {Niterations} iterations")
         print("Timestep Temperature KineticEnergy PotentialEnergy TotalEnergy")
-        self.dt = self.dt if dt is None else dt
         positions = []
         Ts = []
         kineticEnergyList = []
@@ -109,7 +155,7 @@ class manager():
                 if eval(stopCriterion):
                     print(f"Stopped because fulfilled criterion after {i} steps")
                     break
-            restarted = self._prop.restart(restartMethod=restartMethod,iterationStep=i,**kwargs)
+            restarted = self._prop.reset(restartMethod=resetMethod, iterationStep=i, **kwargs)
             if restarted:
                 self.positions = self._initialize.getPositions(**self._initialProps["positions"])
                 self.momentums = self._initialize.getMomentums(**self._initialProps["momentum"])
@@ -134,6 +180,13 @@ class manager():
                 "potentialEnergy":potentialEnergyList, "totalEnergy":totalEnergyList}
 
     def makePositionsFile(self,positions,save=None):
+        """
+        Generates a xyz format string from the positions output of a run.
+        :param positions: The positions output
+        :param save: the name of a file in which the xyz format string is saved;
+                     if it is None the string isn't saved (str or None)
+        :return: The xyz format string
+        """
         fileString = ""
         for step in range(len(positions)):
             fileString += f"{len(positions[0])}\nStep {step}\n"
@@ -145,3 +198,4 @@ class manager():
         if save is not None:
             with open(os.path.join(os.path.dirname(__file__),save),"w") as file:
                 file.write(fileString)
+        return fileString
