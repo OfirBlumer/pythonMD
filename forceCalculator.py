@@ -62,8 +62,8 @@ class forceCalculator():
         Calculates the Lennard Jones force acting on each atom
         :param LJ: A dictionary with the LJ parameters. holds a key named "{type1}-{type2}"
                    for each pair of types in the simulation. Each pair holds two keys with LJ parameters:
-                   "epsilon", which should contain a parameter with units of energy, and
-                   "sigma", which should contain a parameter with units of length
+                   "epsilon", which should contain a parameter with value in units of U*ANGSTROM**2*fs**(-2) and
+                   "sigma6", which should contain a parameter with value in units of ANGSTROM**6
 
         :return: a numpy array with the force acting on each atom
         """
@@ -73,8 +73,8 @@ class forceCalculator():
             for couple in range(len(neighboursList[particle])):
                 rad = sum([r**2 for r in neighboursDistList[particle][couple]])**0.5
                 epsilon = (LJ[f"{self._manager.atomTypes[particle]}-"
-                              f"{self._manager.atomTypes[neighboursList[particle][couple]]}"]["epsilon"]).asNumber(kg*ANGSTROM**2*fs**(-2))
-                sigma6 = (LJ[f"{self._manager.atomTypes[particle]}-{self._manager.atomTypes[neighboursList[particle][couple]]}"]["sigma"]).asNumber(ANGSTROM)**6
+                              f"{self._manager.atomTypes[neighboursList[particle][couple]]}"]["epsilon"])
+                sigma6 = (LJ[f"{self._manager.atomTypes[particle]}-{self._manager.atomTypes[neighboursList[particle][couple]]}"]["sigma6"])
                 Fs[particle] += neighboursDistList[particle][couple]/rad*24*epsilon*(-2*sigma6**2/(rad**13)+sigma6/(rad ** 7))
         return numpy.array(Fs)
 
@@ -116,8 +116,8 @@ class forceCalculator():
         for particle in range(self._manager.N):
             for couple in range(len(neighboursList[particle])):
                 rad = sum([r ** 2 for r in neighboursDistList[particle][couple]]) ** 0.5
-                epsilon = LJ[f"{self._manager.atomTypes[particle]}-{self._manager.atomTypes[couple]}"]["epsilon"]
-                sigma6 = (LJ[f"{self._manager.atomTypes[particle]}-{self._manager.atomTypes[couple]}"]["sigma"]) ** 6
+                epsilon = (LJ[f"{self._manager.atomTypes[particle]}-{self._manager.atomTypes[couple]}"]["epsilon"])
+                sigma6 = (LJ[f"{self._manager.atomTypes[particle]}-{self._manager.atomTypes[couple]}"]["sigma6"])
                 potE += 4 * epsilon * (sigma6**2/ (rad**12) - sigma6/(rad**6))
         return numpy.array(potE)
 
@@ -140,6 +140,6 @@ class forceCalculator():
                 if abs(rijval) < self._cutoff:
                     neighboursList[i].append(j)
                     neighboursList[j].append(i)
-                    neighboursDistList[i].append(rij)
-                    neighboursDistList[j].append(-rij)
+                    neighboursDistList[i].append(-rij)
+                    neighboursDistList[j].append(rij)
         return neighboursList, neighboursDistList

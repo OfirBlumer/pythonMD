@@ -128,7 +128,7 @@ class manager():
         self.momentums = self._initialize.getMomentums(**kwargs)
         self.atomTypes = self._initialize.getAtomTypes(positions=positions,types=types)
 
-    def run(self, Niterations, savePositions=100, printStats=100, resetMethod=None, stopCriterion=None, **kwargs):
+    def run(self, Niterations, savePositions=100,saveStats=100, printStats=100, resetMethod=None, stopCriterion=None, LJ=None,**kwargs):
         """
         The simulation's main function, in which the main loop is executed
 
@@ -139,12 +139,20 @@ class manager():
                             Else, the method by which resetting occurs (see propagator class' reset function)
         :param stopCriterion: A str of a Boolean statement that is used for an if check;
                               stops the simulation of the criterion is reached
+        :param LJ: optional, for LJ potential. A dictionary with the LJ parameters. holds a key named "{type1}-{type2}"
+                   for each pair of types in the simulation. Each pair holds two keys with LJ parameters:
+                   "epsilon", which should contain a parameter with units of energy, and
+                   "sigma", which should contain a parameter with units of length
         :param kwargs: Any additional parameters that may be needed for the resetting,
                        propagation or calculation of potential energy
         :return: a dictionary with a list of positions , temperatures and energies at different times
         """
         print(f"Start running for {Niterations} iterations")
         print("Timestep Temperature KineticEnergy PotentialEnergy TotalEnergy")
+        if isinstance(LJ,dict):
+            for key in LJ.keys():
+                LJ[key]["epsilon"] = (LJ[key]["epsilon"]).asNumber(U * ANGSTROM ** 2 * fs ** (-2))
+                LJ[key]["sigma6"] = (LJ[key]["sigma"]).asNumber(ANGSTROM)**6
         positions = []
         Ts = []
         kineticEnergyList = []
@@ -155,27 +163,25 @@ class manager():
                 if eval(stopCriterion):
                     print(f"Stopped because fulfilled criterion after {i} steps")
                     break
-            restarted = self._prop.reset(restartMethod=resetMethod, iterationStep=i, **kwargs)
+            restarted = self._prop.reset(resetMethod=resetMethod, iterationStep=i, **kwargs)
             if restarted:
                 self.positions = self._initialize.getPositions(**self._initialProps["positions"])
                 self.momentums = self._initialize.getMomentums(**self._initialProps["momentum"])
             else:
-                self._prop.propagate(**kwargs)
+                self._prop.propagate(LJ=LJ,**kwargs)
                 if i >= savePositions and i%savePositions==0:
                     positions.append(numpy.copy(self.positions))
-                if i >= printStats and i%printStats==0:
+                if i >= saveStats and i%saveStats==0:
                     kineticEnergies = self.momentums**2/2/self.masses
-                    if self.dimensions == 1:
-                        kineticEnergy = (sum(sum(kineticEnergies))*U*ANGSTROM**2*fs**(-2)).asNumber(J)
-                    else:
-                        kineticEnergy = (sum([sum([e**2 for e in energy])**0.5 for energy in kineticEnergies])*U*ANGSTROM**2*fs**(-2)).asNumber(J)
-                    potentialEnergy = (self.forces.calculatePotentialEnergy(**kwargs)*U*ANGSTROM**2*fs**(-2)).asNumber(J)
+                    kineticEnergy = (sum(sum(kineticEnergies))*U*ANGSTROM**2*fs**(-2)).asNumber(J)
+                    potentialEnergy = (self.forces.calculatePotentialEnergy(LJ=LJ,**kwargs)*U*ANGSTROM**2*fs**(-2)).asNumber(J)
                     T = 2*kineticEnergy/(1.38e-23)/self.dimensions/self.N
                     Ts.append(T),
                     kineticEnergyList.append(kineticEnergy*6.02e23/self.N)
                     potentialEnergyList.append(potentialEnergy*6.02e23/self.N)
                     totalEnergyList.append((kineticEnergy+potentialEnergy)*6.02e23/self.N)
-                    print(i,T,kineticEnergy*6.02e23/self.N,potentialEnergy*6.02e23/self.N,(kineticEnergy+potentialEnergy)*6.02e23/self.N)
+                    if i >= printStats and i%printStats==0:
+                        print(i,T,kineticEnergy*6.02e23/self.N,potentialEnergy*6.02e23/self.N,(kineticEnergy+potentialEnergy)*6.02e23/self.N)
         return {"positions":positions,"T":Ts,"kineticEnergy":kineticEnergyList,
                 "potentialEnergy":potentialEnergyList, "totalEnergy":totalEnergyList}
 

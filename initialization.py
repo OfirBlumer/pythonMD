@@ -25,6 +25,7 @@ class initialization():
         print("Reading positions")
         if isinstance(positions,list):
             ret = numpy.array(positions)
+            self._manager.N=len(positions)
         elif isinstance(positions,str):
             if positions.split(".")[-1]=="xyz":
                 with open(positions, "r") as file:
