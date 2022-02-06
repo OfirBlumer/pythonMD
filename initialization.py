@@ -1,6 +1,8 @@
 from unum.units import *
 import numpy
 
+kb_simUnits = 8.310549580257024e-7
+
 class initialization():
 
     _momentum = None
@@ -22,7 +24,7 @@ class initialization():
         :param positions: The positions; currently supports a list of list or a name of a xyz file (list or str)
         :return: the positions as a numpy array
         """
-        print("Reading positions")
+        # print("Reading positions")
         if isinstance(positions,list):
             ret = numpy.array(positions)
             self._manager.N=len(positions)
@@ -88,7 +90,7 @@ class initialization():
         :param kwargs: any parameters needed for the calculation of the momentum
         :return: the momentum as a numpy array
         """
-        print("Calculating Momentums using ",self._momentum)
+        # print("Calculating Momentums using ",self._momentum)
         return getattr(self,f"getMomentums_{self._momentum}")(**kwargs)
 
     def getMomentums_MaxwellBoltzmann(self, temperature):
@@ -97,7 +99,7 @@ class initialization():
         :param temperature: The temperature of the system (int/float*unum units of temperature)
         :return: the momentum as a numpy array
         """
-        kT = 8.310549580257024e-7*temperature.asNumber(K)
+        kT = kb_simUnits*temperature.asNumber(K)
         Momentums = []
         d = self._manager.dimensions
         for i in range(self._manager.N):
