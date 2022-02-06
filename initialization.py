@@ -49,13 +49,16 @@ class initialization():
         :return: the masses as a numpy array
         """
         newMasses = []
-        mass = mass.asNumber(U)
+        try:
+            mass = mass.asNumber(U)
+        except:
+            mass = [mas.asNumber(U) for mas in mass]
         if isinstance(mass, int) or isinstance(mass, float):
             for n in range(self._manager.N):
                 newMasses.append([mass for d in range(self._manager.dimensions)])
         elif isinstance(mass, list):
             for massVal in mass:
-                newMasses.append([massVal.asNumber(U) for d in range(self._manager.dimensions)])
+                newMasses.append([massVal for d in range(self._manager.dimensions)])
         return numpy.array(newMasses)
 
     def getAtomTypes(self,positions,types=None):

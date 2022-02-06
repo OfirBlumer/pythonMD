@@ -56,7 +56,7 @@ class propagator():
         self.propagate_Langevin(dt=dt / 2, gamma=gamma, temperature=temperature)
 
     def reset(self, resetMethod, **kwargs):
-        return False if resetMethod is None else getattr(self, f"restart_{resetMethod}")(**kwargs)
+        return False if resetMethod is None else getattr(self, f"reset_{resetMethod}")(**kwargs)
 
     def reset_Poisson(self,resetRate,**kwargs):
         return self._manager.dt*resetRate>numpy.random.uniform()
