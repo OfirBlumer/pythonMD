@@ -1,9 +1,11 @@
-from .initialization import initialization
-from .propagator import propagator
-from .forceCalculator import forceCalculator
+from initialization import initialization
+from propagator import propagator
+from forceCalculator import forceCalculator
 from unum.units import *
 import numpy
 import os
+Na = 6.02e23
+kb_si = 1.38e-23
 
 class manager():
 
@@ -75,8 +77,8 @@ class manager():
     def dt(self,newdt):
         self._dt=newdt
 
-    def __init__(self,boundaries=None,boundariesType="periodic",prop="VelocityVerlet",momentum="MaxwellBoltzmann",
-                 forces=["LJ"],dimensions=1,dt=1*fs,cutoff=10*ANGSTROM):
+    def __init__(self,boundaries=None,boundariesType="periodic",prop=[("VelocityVerlet",1.)],momentum="MaxwellBoltzmann",
+                 forces=["LJ"],dimensions=1,dt=1*fs,cutoff=10*ANGSTROM,seed=0):
         """
         This class manage the simulation. It holds the simulation data and
         calls the acting functions that propagates the simulation.
@@ -89,8 +91,8 @@ class manager():
                                are implemented. Any input other than the default "periodic" would
                                lead to a simulation with no boundaries. (None or str)
 
-        :param prop: The type of propagator used in the simulation.
-                     Currently, only VelocityVerlet is available. (str)
+        :param prop: The types of propagator used in the simulation and their relative timesteps.
+                     Currently, VelocityVerlet, Langevin and CSVR are available. (list of (str,float))
 
         :param momentum: The methods by which the momentum values are calculated;
                          currently the only option is "MaxwellBoltzmann". (str)
@@ -112,6 +114,7 @@ class manager():
         self._forces = forceCalculator(forces=forces,manager=self,cutoff=cutoff)
         self._boundaries=boundaries
         self._boundariesType=boundariesType
+        numpy.random.seed(seed)
 
     def initialize(self,positions,masses,types=None,**kwargs):
         """
@@ -122,13 +125,14 @@ class manager():
         :param types: see initialization class getAtomTypes doc
         :param kwargs: Additional parameters that may be required by initialization class' getMomentums
         """
-        print("Initializing Molecular Dynamics Simulation")
+        # print("Initializing Molecular Dynamics Simulation")
         self.positions = self._initialize.getPositions(positions)
         self.masses = self._initialize.getMasses(masses)
         self.momentums = self._initialize.getMomentums(**kwargs)
         self.atomTypes = self._initialize.getAtomTypes(positions=positions,types=types)
+        self._initialProps = {"positions":positions,"momentum":kwargs}
 
-    def run(self, Niterations, savePositions=100,saveStats=100, printStats=100, resetMethod=None, stopCriterion=None, LJ=None,**kwargs):
+    def run(self, Niterations, savePositions=100,saveMomentum=100,saveStats=100, printStats=100, resetMethod=None, stopCriterion=None, LJ=None,**kwargs):
         """
         The simulation's main function, in which the main loop is executed
 
@@ -147,8 +151,8 @@ class manager():
                        propagation or calculation of potential energy
         :return: a dictionary with a list of positions , temperatures and energies at different times
         """
-        print(f"Start running for {Niterations} iterations")
-        print("Timestep Temperature KineticEnergy PotentialEnergy TotalEnergy")
+        # print(f"Start running for {Niterations} iterations")
+        # print("Timestep Temperature KineticEnergy PotentialEnergy TotalEnergy")
         if isinstance(LJ,dict):
             for key in LJ.keys():
                 LJ[key]["epsilon"] = (LJ[key]["epsilon"]).asNumber(U * ANGSTROM ** 2 * fs ** (-2))
@@ -158,6 +162,7 @@ class manager():
         kineticEnergyList = []
         potentialEnergyList = []
         totalEnergyList = []
+        momentum = []
         for i in range(Niterations):
             if stopCriterion is not None:
                 if eval(stopCriterion):
@@ -165,25 +170,28 @@ class manager():
                     break
             restarted = self._prop.reset(resetMethod=resetMethod, iterationStep=i, **kwargs)
             if restarted:
-                self.positions = self._initialize.getPositions(**self._initialProps["positions"])
+                print("Reseting...")
+                self.positions = self._initialize.getPositions(self._initialProps["positions"])
                 self.momentums = self._initialize.getMomentums(**self._initialProps["momentum"])
             else:
                 self._prop.propagate(LJ=LJ,**kwargs)
                 if i >= savePositions and i%savePositions==0:
                     positions.append(numpy.copy(self.positions))
+                if i >= saveMomentum and i%saveMomentum==0:
+                    momentum.append(numpy.copy(self.momentums))
                 if i >= saveStats and i%saveStats==0:
                     kineticEnergies = self.momentums**2/2/self.masses
                     kineticEnergy = (sum(sum(kineticEnergies))*U*ANGSTROM**2*fs**(-2)).asNumber(J)
                     potentialEnergy = (self.forces.calculatePotentialEnergy(LJ=LJ,**kwargs)*U*ANGSTROM**2*fs**(-2)).asNumber(J)
-                    T = 2*kineticEnergy/(1.38e-23)/self.dimensions/self.N
+                    T = 2*kineticEnergy/(kb_si)/self.dimensions/self.N
                     Ts.append(T),
-                    kineticEnergyList.append(kineticEnergy*6.02e23/self.N)
-                    potentialEnergyList.append(potentialEnergy*6.02e23/self.N)
-                    totalEnergyList.append((kineticEnergy+potentialEnergy)*6.02e23/self.N)
+                    kineticEnergyList.append(kineticEnergy*Na/self.N)
+                    potentialEnergyList.append(potentialEnergy*Na/self.N)
+                    totalEnergyList.append((kineticEnergy+potentialEnergy)*Na/self.N)
                     if i >= printStats and i%printStats==0:
-                        print(i,T,kineticEnergy*6.02e23/self.N,potentialEnergy*6.02e23/self.N,(kineticEnergy+potentialEnergy)*6.02e23/self.N)
-        return {"positions":positions,"T":Ts,"kineticEnergy":kineticEnergyList,
-                "potentialEnergy":potentialEnergyList, "totalEnergy":totalEnergyList}
+                        print(i,T,kineticEnergy*Na/self.N,potentialEnergy*Na/self.N,(kineticEnergy+potentialEnergy)*Na/self.N)
+        return {"positions":positions,"momenta":momentum,"T":Ts,"kineticEnergy":kineticEnergyList,
+                "potentialEnergy":potentialEnergyList, "totalEnergy":totalEnergyList,"nsteps":i}
 
     def makePositionsFile(self,positions,save=None):
         """
