@@ -26,7 +26,7 @@ class propagator():
         for propStyle in self._prop:
             getattr(self, f"propagate_{propStyle[0]}")(dt=self._manager.dt*propStyle[1],**kwargs)
         if self._manager.boundariesType=="periodic":
-            self._manager.positions -= self._manager.boundaries*numpy.rint(self._manager.positions/self._manager.boundaries)
+            self._manager.positions -= self._manager.boundaries*numpy.fix(self._manager.positions/self._manager.boundaries)
 
     def propagate_VelocityVerlet(self, dt,**kwargs):
         """
@@ -35,6 +35,9 @@ class propagator():
         :param kwargs: any parameters needed for calculating the forces
         """
         Fs = self._manager.forces.calculateForce(**kwargs)
+        # print(self._manager.positions)
+        # print(self._manager.forces.calculatePotentialEnergy(**kwargs))
+        # print(Fs,"\n")
         self._manager.momentums += dt*Fs/2
         self._manager.positions+= dt*self._manager.momentums/self._manager.masses
         Fs = self._manager.forces.calculateForce(**kwargs)

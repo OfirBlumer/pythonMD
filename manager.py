@@ -1,6 +1,6 @@
-from initialization import initialization
-from propagator import propagator
-from forceCalculator import forceCalculator
+from .initialization import initialization
+from .propagator import propagator
+from .forceCalculator import forceCalculator
 from unum.units import *
 import numpy
 import os
@@ -130,9 +130,10 @@ class manager():
         self.masses = self._initialize.getMasses(masses)
         self.momentums = self._initialize.getMomentums(**kwargs)
         self.atomTypes = self._initialize.getAtomTypes(positions=positions,types=types)
-        self._initialProps = {"positions":positions,"momentum":kwargs}
+        self._initialProps = {"positions":numpy.copy(self.positions),"momentum":numpy.copy(self.momentums),"momentumArgs":kwargs}
 
-    def run(self, Niterations, savePositions=100,saveMomentum=100,saveStats=100, printStats=100, resetMethod=None, stopCriterion=None, LJ=None,**kwargs):
+    def run(self, Niterations, savePositions=100,saveMomentum=100,saveStats=100, printStats=100,
+            resetMethod=None,resetSameMomentum=True, stopCriterion=None, LJ=None,**kwargs):
         """
         The simulation's main function, in which the main loop is executed
 
@@ -164,15 +165,19 @@ class manager():
         totalEnergyList = []
         momentum = []
         for i in range(Niterations):
+            # print(self.positions)
             if stopCriterion is not None:
                 if eval(stopCriterion):
                     print(f"Stopped because fulfilled criterion after {i} steps")
                     break
             restarted = self._prop.reset(resetMethod=resetMethod, iterationStep=i, **kwargs)
             if restarted:
-                print("Reseting...")
-                self.positions = self._initialize.getPositions(self._initialProps["positions"])
-                self.momentums = self._initialize.getMomentums(**self._initialProps["momentum"])
+                print("Resetting...")
+                self.positions = self._initialProps["positions"]
+                if resetSameMomentum:
+                    self.momentums = self._initialProps["momentum"]
+                else:
+                    self.momentums = self._initialize.getMomentums(**self._initialProps["momentumArgs"])
             else:
                 self._prop.propagate(LJ=LJ,**kwargs)
                 if i >= savePositions and i%savePositions==0:
@@ -181,15 +186,19 @@ class manager():
                     momentum.append(numpy.copy(self.momentums))
                 if i >= saveStats and i%saveStats==0:
                     kineticEnergies = self.momentums**2/2/self.masses
-                    kineticEnergy = (sum(sum(kineticEnergies))*U*ANGSTROM**2*fs**(-2)).asNumber(J)
-                    potentialEnergy = (self.forces.calculatePotentialEnergy(LJ=LJ,**kwargs)*U*ANGSTROM**2*fs**(-2)).asNumber(J)
+                    kineticEnergy = (sum(sum(kineticEnergies)))#*U*ANGSTROM**2*fs**(-2)).asNumber(J)
+                    potentialEnergy = (self.forces.calculatePotentialEnergy(LJ=LJ,**kwargs))#*U*ANGSTROM**2*fs**(-2)).asNumber(J)
                     T = 2*kineticEnergy/(kb_si)/self.dimensions/self.N
                     Ts.append(T),
-                    kineticEnergyList.append(kineticEnergy*Na/self.N)
-                    potentialEnergyList.append(potentialEnergy*Na/self.N)
-                    totalEnergyList.append((kineticEnergy+potentialEnergy)*Na/self.N)
+                    # kineticEnergyList.append(kineticEnergy*Na/self.N)
+                    # potentialEnergyList.append(potentialEnergy*Na/self.N)
+                    # totalEnergyList.append((kineticEnergy+potentialEnergy)*Na/self.N)
+                    kineticEnergyList.append(kineticEnergy)
+                    potentialEnergyList.append(potentialEnergy)
+                    totalEnergyList.append((kineticEnergy+potentialEnergy))
                     if i >= printStats and i%printStats==0:
-                        print(i,T,kineticEnergy*Na/self.N,potentialEnergy*Na/self.N,(kineticEnergy+potentialEnergy)*Na/self.N)
+                        # print(i,T,kineticEnergy*Na/self.N,potentialEnergy*Na/self.N,(kineticEnergy+potentialEnergy)*Na/self.N)
+                        print(i, T, kineticEnergy, potentialEnergy ,(kineticEnergy + potentialEnergy) )
         return {"positions":positions,"momenta":momentum,"T":Ts,"kineticEnergy":kineticEnergyList,
                 "potentialEnergy":potentialEnergyList, "totalEnergy":totalEnergyList,"nsteps":i}
 

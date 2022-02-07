@@ -67,7 +67,7 @@ class forceCalculator():
 
         :return: a numpy array with the force acting on each atom
         """
-        Fs = [[0] for n in range(self._manager.N)]
+        Fs = [numpy.zeros(self._manager.dimensions) for n in range(self._manager.N)]
         neighboursList, neighboursDistList = self.findNeighbours()
         for particle in range(self._manager.N):
             for couple in range(len(neighboursList[particle])):
@@ -75,7 +75,7 @@ class forceCalculator():
                 epsilon = (LJ[f"{self._manager.atomTypes[particle]}-"
                               f"{self._manager.atomTypes[neighboursList[particle][couple]]}"]["epsilon"])
                 sigma6 = (LJ[f"{self._manager.atomTypes[particle]}-{self._manager.atomTypes[neighboursList[particle][couple]]}"]["sigma6"])
-                Fs[particle] += neighboursDistList[particle][couple]/rad*24*epsilon*(-2*sigma6**2/(rad**13)+sigma6/(rad ** 7))
+                Fs[particle] += neighboursDistList[particle][couple]/rad*24*epsilon*(2*sigma6**2/(rad**13)-sigma6/(rad ** 7))
         return numpy.array(Fs)
 
     def calculatePotentialEnergy(self, **kwargs):
@@ -112,13 +112,11 @@ class forceCalculator():
         :return: The value of the LJ potential energy
         """
         potE = 0
-        neighboursList, neighboursDistList = self.findNeighbours()
-        for particle in range(self._manager.N):
-            for couple in range(len(neighboursList[particle])):
-                rad = sum([r ** 2 for r in neighboursDistList[particle][couple]]) ** 0.5
-                epsilon = (LJ[f"{self._manager.atomTypes[particle]}-{self._manager.atomTypes[couple]}"]["epsilon"])
-                sigma6 = (LJ[f"{self._manager.atomTypes[particle]}-{self._manager.atomTypes[couple]}"]["sigma6"])
-                potE += 4 * epsilon * (sigma6**2/ (rad**12) - sigma6/(rad**6))
+        radiusList = self.findRadius()
+        for raduis in radiusList:
+                epsilon = (LJ[raduis[1]]["epsilon"])
+                sigma6 = (LJ[raduis[1]]["sigma6"])
+                potE += 4 * epsilon * (sigma6**2/ (raduis[0]**12) - sigma6/(raduis[0]**6))
         return numpy.array(potE)
 
     def findNeighbours(self):
@@ -135,11 +133,28 @@ class forceCalculator():
         for i in range(self._manager.N-1):
             for j in range(i+1,self._manager.N):
                 rij = self._manager.positions[i]-self._manager.positions[j]
-                rij -= self._manager.boundaries*numpy.rint(rij/self._manager.boundaries)
+                rij -= self._manager.boundaries*numpy.fix(rij/self._manager.boundaries)
                 rijval = sum([r**2 for r in rij])**0.5
                 if abs(rijval) < self._cutoff:
                     neighboursList[i].append(j)
                     neighboursList[j].append(i)
-                    neighboursDistList[i].append(-rij)
-                    neighboursDistList[j].append(rij)
+                    neighboursDistList[i].append(rij)
+                    neighboursDistList[j].append(-rij)
         return neighboursList, neighboursDistList
+
+    def findRadius(self):
+        """
+        finds the radius in the system.
+        :return: radiusList, a list of radii
+        """
+        radiusList = []
+
+        for i in range(self._manager.N-1):
+            for j in range(i+1,self._manager.N):
+                rij = self._manager.positions[i]-self._manager.positions[j]
+                rij -= self._manager.boundaries*numpy.fix(rij/self._manager.boundaries)
+                rijval = sum([r**2 for r in rij])**0.5
+                if abs(rijval) < self._cutoff:
+                    radiusList.append((rijval,f"{self._manager.atomTypes[i]}-{self._manager.atomTypes[j]}"))
+
+        return radiusList
