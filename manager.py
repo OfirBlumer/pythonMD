@@ -166,10 +166,13 @@ class manager():
         momentum = []
         for i in range(Niterations):
             # print(self.positions)
-            if stopCriterion is not None:
-                if eval(stopCriterion):
-                    print(f"Stopped because fulfilled criterion after {i} steps")
-                    break
+            # if stopCriterion is not None:
+            #     if eval(stopCriterion):
+            #         print(f"Stopped because fulfilled criterion after {i} steps")
+            #         break
+            if self.positions[0][0]<0:
+                print(f"Stopped because fulfilled criterion after {i} steps")
+                break
             restarted = self._prop.reset(resetMethod=resetMethod, iterationStep=i, **kwargs)
             if restarted:
                 print("Resetting...")

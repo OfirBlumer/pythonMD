@@ -133,7 +133,10 @@ class forceCalculator():
         for i in range(self._manager.N-1):
             for j in range(i+1,self._manager.N):
                 rij = self._manager.positions[i]-self._manager.positions[j]
-                rij -= self._manager.boundaries*numpy.fix(rij/self._manager.boundaries)
+                change = self._manager.boundaries*numpy.fix(rij*2/self._manager.boundaries)
+                rij -= change
+                if sum(change)!=0:
+                    rij *= -1
                 rijval = sum([r**2 for r in rij])**0.5
                 if abs(rijval) < self._cutoff:
                     neighboursList[i].append(j)
@@ -152,9 +155,34 @@ class forceCalculator():
         for i in range(self._manager.N-1):
             for j in range(i+1,self._manager.N):
                 rij = self._manager.positions[i]-self._manager.positions[j]
-                rij -= self._manager.boundaries*numpy.fix(rij/self._manager.boundaries)
+                change = self._manager.boundaries*numpy.fix(rij*2/self._manager.boundaries)
+                rij -= change
+                if sum(change)!=0:
+                    rij *= -1
                 rijval = sum([r**2 for r in rij])**0.5
                 if abs(rijval) < self._cutoff:
                     radiusList.append((rijval,f"{self._manager.atomTypes[i]}-{self._manager.atomTypes[j]}"))
 
         return radiusList
+
+    #### Specific potentials, because eval is slow...
+
+    def calculatePotentialEnergy_RessetingFirstPotential(self, qConstant,gaussConstant,gaussWidth,**kwargs):
+        width = gaussWidth ** 2
+        potE = 0
+        for qs, m in zip(self._manager.positions, self._manager.masses):
+            newF = []
+            for q in qs:
+                newF.append(qConstant*q**2+gaussConstant*numpy.exp(-q**2/(2*width)))
+            potE += sum(newF)
+        return potE
+
+    def calculateForce_RessetingFirstPotential(self,qConstant,gaussConstant,gaussWidth,**kwargs):
+
+        Fs = []
+        for qs, m in zip(self._manager.positions, self._manager.masses):
+            newF = []
+            for q in qs:
+                newF.append(-q*(qConstant*2-gaussConstant*numpy.exp(-q**2/(2*gaussWidth))/gaussWidth))
+            Fs.append(newF)
+        return numpy.array(Fs)
