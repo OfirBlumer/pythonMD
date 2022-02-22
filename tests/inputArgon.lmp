@@ -1,0 +1,21 @@
+units		real
+atom_style	full
+
+read_data	argon.data
+
+pair_style	lj/cut 5
+
+pair_coeff	1 1 0.238 3.4
+
+fix		1 all nve
+
+velocity	all create 300 432567 mom yes dist gaussian
+
+timestep	1.0
+
+thermo		1000
+
+dump		1 all custom 1000 positions.lammpstrj type x y z
+thermo_style    custom step temp etotal pe ke press vol density
+
+run		10000

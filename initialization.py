@@ -18,7 +18,7 @@ class initialization():
         self._momentum=momentum
         self._manager=manager
 
-    def getPositions(self,positions):
+    def getPositions(self,positions,shiftPositions=[0],**kwargs):
         """
         Sets the number of atoms in the system and the initial positions
         :param positions: The positions; currently supports a list of list or a name of a xyz file (list or str)
@@ -40,10 +40,11 @@ class initialization():
                         positionsList[i].append(float(val))
                 ret = numpy.array(positionsList)
             else:
-                raise ValueError("Currently, only .xyz are available")
+                raise ValueError("Currently, only .xyz file are available")
+        ret += numpy.array([shiftPositions for i in range(self._manager.N)])
         return ret
 
-    def getMasses(self,mass):
+    def getMasses(self,mass,**kwargs):
         """
         Sets the masses in the system.
         :param mass: The mass of atoms; currently supports a single value for uniform mass
@@ -93,7 +94,7 @@ class initialization():
         # print("Calculating Momentums using ",self._momentum)
         return getattr(self,f"getMomentums_{self._momentum}")(**kwargs)
 
-    def getMomentums_MaxwellBoltzmann(self, temperature):
+    def getMomentums_MaxwellBoltzmann(self, temperature,**kwargs):
         """
         Sets the momentum using the Maxwell-Boltzmann distribution
         :param temperature: The temperature of the system (int/float*unum units of temperature)

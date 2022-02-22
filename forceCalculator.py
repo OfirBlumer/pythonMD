@@ -69,6 +69,7 @@ class forceCalculator():
         """
         Fs = [numpy.zeros(self._manager.dimensions) for n in range(self._manager.N)]
         neighboursList, neighboursDistList = self.findNeighbours()
+        rad=10
         for particle in range(self._manager.N):
             for couple in range(len(neighboursList[particle])):
                 rad = sum([r**2 for r in neighboursDistList[particle][couple]])**0.5
@@ -135,8 +136,6 @@ class forceCalculator():
                 rij = self._manager.positions[i]-self._manager.positions[j]
                 change = self._manager.boundaries*numpy.fix(rij*2/self._manager.boundaries)
                 rij -= change
-                if sum(change)!=0:
-                    rij *= -1
                 rijval = sum([r**2 for r in rij])**0.5
                 if abs(rijval) < self._cutoff:
                     neighboursList[i].append(j)

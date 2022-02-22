@@ -26,7 +26,7 @@ class propagator():
         for propStyle in self._prop:
             getattr(self, f"propagate_{propStyle[0]}")(dt=self._manager.dt*propStyle[1],**kwargs)
         if self._manager.boundariesType=="periodic":
-            self._manager.positions -= self._manager.boundaries*numpy.fix(self._manager.positions/self._manager.boundaries)
+            self._manager.positions -= self._manager.boundaries*numpy.floor(self._manager.positions/self._manager.boundaries)
 
     def propagate_VelocityVerlet(self, dt,**kwargs):
         """

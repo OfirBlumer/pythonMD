@@ -126,7 +126,7 @@ class manager():
         :param kwargs: Additional parameters that may be required by initialization class' getMomentums
         """
         # print("Initializing Molecular Dynamics Simulation")
-        self.positions = self._initialize.getPositions(positions)
+        self.positions = self._initialize.getPositions(positions,**kwargs)
         self.masses = self._initialize.getMasses(masses)
         self.momentums = self._initialize.getMomentums(**kwargs)
         self.atomTypes = self._initialize.getAtomTypes(positions=positions,types=types)
@@ -155,9 +155,15 @@ class manager():
         # print(f"Start running for {Niterations} iterations")
         # print("Timestep Temperature KineticEnergy PotentialEnergy TotalEnergy")
         if isinstance(LJ,dict):
+            newkeys = []
+            newkeysvals = []
             for key in LJ.keys():
                 LJ[key]["epsilon"] = (LJ[key]["epsilon"]).asNumber(U * ANGSTROM ** 2 * fs ** (-2))
                 LJ[key]["sigma6"] = (LJ[key]["sigma"]).asNumber(ANGSTROM)**6
+                newkeys.append(f"{key.split('-')[1]}-{key.split('-')[0]}")
+                newkeysvals.append({"epsilon":LJ[key]["epsilon"],"sigma6":LJ[key]["sigma6"]})
+            for i in range(len(newkeys)):
+                LJ[newkeys[i]] = newkeysvals[i]
         positions = []
         Ts = []
         kineticEnergyList = []
@@ -170,9 +176,9 @@ class manager():
             #     if eval(stopCriterion):
             #         print(f"Stopped because fulfilled criterion after {i} steps")
             #         break
-            if self.positions[0][0]<0:
-                print(f"Stopped because fulfilled criterion after {i} steps")
-                break
+            # if self.positions[0][0]<0:
+            #     print(f"Stopped because fulfilled criterion after {i} steps")
+            #     break
             restarted = self._prop.reset(resetMethod=resetMethod, iterationStep=i, **kwargs)
             if restarted:
                 print("Resetting...")
@@ -189,8 +195,8 @@ class manager():
                     momentum.append(numpy.copy(self.momentums))
                 if i >= saveStats and i%saveStats==0:
                     kineticEnergies = self.momentums**2/2/self.masses
-                    kineticEnergy = (sum(sum(kineticEnergies)))#*U*ANGSTROM**2*fs**(-2)).asNumber(J)
-                    potentialEnergy = (self.forces.calculatePotentialEnergy(LJ=LJ,**kwargs))#*U*ANGSTROM**2*fs**(-2)).asNumber(J)
+                    kineticEnergy = (sum(sum(kineticEnergies))*U*ANGSTROM**2*fs**(-2)).asNumber(J)
+                    potentialEnergy = (self.forces.calculatePotentialEnergy(LJ=LJ,**kwargs)*U*ANGSTROM**2*fs**(-2)).asNumber(J)
                     T = 2*kineticEnergy/(kb_si)/self.dimensions/self.N
                     Ts.append(T),
                     # kineticEnergyList.append(kineticEnergy*Na/self.N)
