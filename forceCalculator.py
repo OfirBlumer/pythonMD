@@ -1,5 +1,7 @@
+withUnits = True
 import numpy
-from unum.units import *
+if withUnits:
+    from unum.units import *
 class forceCalculator():
 
     _forceList = None
@@ -28,7 +30,10 @@ class forceCalculator():
         """
         self._forceList=forces
         self._manager = manager
-        self._cutoff=cutoff.asNumber(ANGSTROM)
+        if withUnits:
+            self._cutoff=10 if cutoff is None else cutoff.asNumber(ANGSTROM)
+        else:
+            self._cutoff = 10 if cutoff is None else cutoff
 
     def calculateForce(self,**kwargs):
         """
@@ -156,8 +161,6 @@ class forceCalculator():
                 rij = self._manager.positions[i]-self._manager.positions[j]
                 change = self._manager.boundaries*numpy.fix(rij*2/self._manager.boundaries)
                 rij -= change
-                if sum(change)!=0:
-                    rij *= -1
                 rijval = sum([r**2 for r in rij])**0.5
                 if abs(rijval) < self._cutoff:
                     radiusList.append((rijval,f"{self._manager.atomTypes[i]}-{self._manager.atomTypes[j]}"))

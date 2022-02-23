@@ -1,11 +1,14 @@
+withUnits = True
 from .initialization import initialization
 from .propagator import propagator
 from .forceCalculator import forceCalculator
-from unum.units import *
+if withUnits:
+    from unum.units import *
 import numpy
 import os
 Na = 6.02e23
 kb_si = 1.38e-23
+energyToJ = 1.66054e-17
 
 class manager():
 
@@ -78,7 +81,7 @@ class manager():
         self._dt=newdt
 
     def __init__(self,boundaries=None,boundariesType="periodic",prop=[("VelocityVerlet",1.)],momentum="MaxwellBoltzmann",
-                 forces=["LJ"],dimensions=1,dt=1*fs,cutoff=10*ANGSTROM,seed=0):
+                 forces=["LJ"],dimensions=1,dt=1*fs,cutoff=None,seed=0):
         """
         This class manage the simulation. It holds the simulation data and
         calls the acting functions that propagates the simulation.
@@ -109,7 +112,10 @@ class manager():
         """
         self._initialize = initialization(momentum=momentum,manager=self)
         self._dimensions = dimensions
-        self._dt = dt.asNumber(fs)
+        if withUnits:
+            self._dt = dt.asNumber(fs)
+        else:
+            self._dt = dt
         self._prop = propagator(prop=prop,manager=self)
         self._forces = forceCalculator(forces=forces,manager=self,cutoff=cutoff)
         self._boundaries=boundaries
@@ -158,8 +164,12 @@ class manager():
             newkeys = []
             newkeysvals = []
             for key in LJ.keys():
-                LJ[key]["epsilon"] = (LJ[key]["epsilon"]).asNumber(U * ANGSTROM ** 2 * fs ** (-2))
-                LJ[key]["sigma6"] = (LJ[key]["sigma"]).asNumber(ANGSTROM)**6
+                if withUnits:
+                    LJ[key]["epsilon"] = (LJ[key]["epsilon"]).asNumber(U * ANGSTROM ** 2 * fs ** (-2))
+                    LJ[key]["sigma6"] = (LJ[key]["sigma"]).asNumber(ANGSTROM)**6
+                else:
+                    LJ[key]["epsilon"] = LJ[key]["epsilon"]
+                    LJ[key]["sigma6"] = LJ[key]["sigma"]
                 newkeys.append(f"{key.split('-')[1]}-{key.split('-')[0]}")
                 newkeysvals.append({"epsilon":LJ[key]["epsilon"],"sigma6":LJ[key]["sigma6"]})
             for i in range(len(newkeys)):
@@ -195,8 +205,8 @@ class manager():
                     momentum.append(numpy.copy(self.momentums))
                 if i >= saveStats and i%saveStats==0:
                     kineticEnergies = self.momentums**2/2/self.masses
-                    kineticEnergy = (sum(sum(kineticEnergies))*U*ANGSTROM**2*fs**(-2)).asNumber(J)
-                    potentialEnergy = (self.forces.calculatePotentialEnergy(LJ=LJ,**kwargs)*U*ANGSTROM**2*fs**(-2)).asNumber(J)
+                    kineticEnergy = sum(sum(kineticEnergies))*energyToJ
+                    potentialEnergy = self.forces.calculatePotentialEnergy(LJ=LJ,**kwargs)*energyToJ
                     T = 2*kineticEnergy/(kb_si)/self.dimensions/self.N
                     Ts.append(T),
                     # kineticEnergyList.append(kineticEnergy*Na/self.N)

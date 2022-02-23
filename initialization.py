@@ -1,4 +1,6 @@
-from unum.units import *
+withUnits = True
+if withUnits:
+    from unum.units import *
 import numpy
 
 kb_simUnits = 8.310549580257024e-7
@@ -52,10 +54,16 @@ class initialization():
         :return: the masses as a numpy array
         """
         newMasses = []
-        try:
-            mass = mass.asNumber(U)
-        except:
-            mass = [mas.asNumber(U) for mas in mass]
+        if withUnits:
+            try:
+                mass = mass.asNumber(U)
+            except:
+                mass = [mas.asNumber(U) for mas in mass]
+        else:
+            try:
+                mass = mass
+            except:
+                mass = [mas for mas in mass]
         if isinstance(mass, int) or isinstance(mass, float):
             for n in range(self._manager.N):
                 newMasses.append([mass for d in range(self._manager.dimensions)])
@@ -100,7 +108,10 @@ class initialization():
         :param temperature: The temperature of the system (int/float*unum units of temperature)
         :return: the momentum as a numpy array
         """
-        kT = kb_simUnits*temperature.asNumber(K)
+        if withUnits:
+            kT = kb_simUnits*temperature.asNumber(K)
+        else:
+            kT = kb_simUnits * temperature
         Momentums = []
         d = self._manager.dimensions
         for i in range(self._manager.N):

@@ -1,8 +1,5 @@
 import numpy
-from unum.units import *
-
 kb_simUnits = 8.310549580257024e-7
-
 
 class propagator():
 
