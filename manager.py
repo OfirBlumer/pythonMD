@@ -1,4 +1,5 @@
 withUnits = True
+withUnits = False
 from .initialization import initialization
 from .propagator import propagator
 from .forceCalculator import forceCalculator
@@ -80,8 +81,8 @@ class manager():
     def dt(self,newdt):
         self._dt=newdt
 
-    def __init__(self,boundaries=None,boundariesType="periodic",prop=[("VelocityVerlet",1.)],momentum="MaxwellBoltzmann",
-                 forces=["LJ"],dimensions=1,dt=1*fs,cutoff=None,seed=0):
+    def __init__(self,dt,boundaries=None,boundariesType="periodic",prop=[("VelocityVerlet",1.)],momentum="MaxwellBoltzmann",
+                 forces=["LJ"],dimensions=1,cutoff=None,seed=0):
         """
         This class manage the simulation. It holds the simulation data and
         calls the acting functions that propagates the simulation.

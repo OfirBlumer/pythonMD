@@ -96,3 +96,6 @@ class propagator():
 
     def reset_Poisson(self,resetRate,**kwargs):
         return self._manager.dt*resetRate>numpy.random.uniform()
+
+    def reset_Constant(self,iterationStep,resetStep,**kwargs):
+        return iterationStep==resetStep
