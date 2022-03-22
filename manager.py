@@ -182,6 +182,7 @@ class manager():
         totalEnergyList = []
         momentum = []
         for i in range(Niterations):
+            # print(i)
             # print(self.positions)
             # if stopCriterion is not None:
             #     if eval(stopCriterion):
@@ -237,8 +238,11 @@ class manager():
                 fileString += f"{self.atomTypes[atom]}"
                 for d in range(self.dimensions):
                     fileString += f"\t{positions[step][atom][d]}"
+                if d<3:
+                    for i in range(3-d):
+                        fileString += "\t0"
                 fileString += "\n"
         if save is not None:
-            with open(os.path.join(os.path.dirname(__file__),save),"w") as file:
+            with open(save,"w") as file:
                 file.write(fileString)
         return fileString

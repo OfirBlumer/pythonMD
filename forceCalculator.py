@@ -170,22 +170,125 @@ class forceCalculator():
 
     #### Specific potentials, because eval is slow...
 
-    def calculatePotentialEnergy_RessetingFirstPotential(self, qConstant,gaussConstant,gaussWidth,**kwargs):
-        width = gaussWidth ** 2
+    def calculatePotentialEnergy_RessetingFirstPotential(self, tails, height, width, **kwargs):
+
         potE = 0
         for qs, m in zip(self._manager.positions, self._manager.masses):
             newF = []
             for q in qs:
-                newF.append(qConstant*q**2+gaussConstant*numpy.exp(-q**2/(2*width)))
+                newF.append(tails * q ** 2 + height * numpy.exp(-q ** 2 / (2 * width)))
             potE += sum(newF)
         return potE
 
-    def calculateForce_RessetingFirstPotential(self,qConstant,gaussConstant,gaussWidth,**kwargs):
+    def calculateForce_RessetingFirstPotential(self, tails, height, width, **kwargs):
 
         Fs = []
         for qs, m in zip(self._manager.positions, self._manager.masses):
             newF = []
             for q in qs:
-                newF.append(-q*(qConstant*2-gaussConstant*numpy.exp(-q**2/(2*gaussWidth))/gaussWidth))
+                newF.append(-q * (tails * 2 - height * numpy.exp(-q ** 2 / (2 * width)) / width))
             Fs.append(newF)
+        return numpy.array(Fs)
+
+    def calculatePotentialEnergy_RessetingSecondPotential(self, slope,**kwargs):
+        height = 0.0006
+        width = 25
+        border = 20
+        fit = -border*slope
+        potE = 0
+        for qs, m in zip(self._manager.positions, self._manager.masses):
+            newF = []
+            for q in qs:
+                if abs(q) > border:
+                    potential = abs(q) * slope + fit
+                else:
+                    potential = height * numpy.exp(-q ** 2 / (2 * width))
+                newF.append(potential)
+            potE += sum(newF)
+        return potE
+
+    def calculateForce_RessetingSecondPotential(self,slope,**kwargs):
+        height = 0.0006
+        width = 25
+        border = 20
+        fit = -border*slope
+        Fs = []
+        for qs, m in zip(self._manager.positions, self._manager.masses):
+            newF = []
+            for q in qs:
+                if abs(q) > border:
+                    force = -numpy.sign(q) * slope + fit
+                else:
+                    force = q * height * numpy.exp(-q ** 2 / (2 * width)) / width
+                newF.append(force)
+            Fs.append(newF)
+        return numpy.array(Fs)
+
+    def calculatePotentialEnergy_RessetingThirdPotential(self, U0,alpha,**kwargs):
+
+        potE = 0
+        for qs, m in zip(self._manager.positions, self._manager.masses):
+            newF = []
+            for q in qs:
+                newF.append(U0*(abs(q)**(2*alpha)-2*abs(q)**alpha)/(2*alpha))
+            potE += sum(newF)
+        return potE
+
+    def calculateForce_RessetingThirdPotential(self,U0,alpha,**kwargs):
+
+        Fs = []
+        for qs, m in zip(self._manager.positions, self._manager.masses):
+            newF = []
+            for q in qs:
+                newF.append(-U0*numpy.sign(q)*(abs(q)**(2*alpha-1)-abs(q)**(alpha-1)))
+            Fs.append(newF)
+        return numpy.array(Fs)
+
+    def calculatePotentialEnergy_Resseting1_2Potential(self, tails,height,width,**kwargs):
+
+        potE = 0
+        for qs, m in zip(self._manager.positions, self._manager.masses):
+            newF = []
+            for q in qs:
+                newF.append(tails*(abs(q)**1.2)+height*numpy.exp(-q**2/(2*width)))
+            potE += sum(newF)
+        return potE
+
+    def calculateForce_Resseting1_2Potential(self,tails,height,width,**kwargs):
+
+        Fs = []
+        for qs, m in zip(self._manager.positions, self._manager.masses):
+            newF = []
+            for q in qs:
+                newF.append(q*height*numpy.exp(-q**2/(2*width))/width-1.2*tails*(abs(q)**0.2))
+            Fs.append(newF)
+        return numpy.array(Fs)
+
+    def calculatePotentialEnergy_Resseting2DgaussianHole(self, tailsx,tailsy,height,depth,shiftx,shifty,widthx,widthy,**kwargs):
+
+        potE = 0
+        # print(f"p={self._manager.positions}")
+        for qs in self._manager.positions:
+            x = qs[0]
+            y = qs[1]
+            potE += -depth*numpy.exp(-((y+shifty)**2+(x+shiftx)**2)/(2*widthy))-\
+                    depth*numpy.exp(-((y-shifty)**2+(x-shiftx)**2)/(2*widthy))+\
+                    tailsy*y**6+tailsx*x**4+height*numpy.exp(-x**2/(2*widthx))
+        # print(f"potE={potE}")
+        return potE
+
+    def calculateForce_Resseting2DgaussianHole(self,tailsx,tailsy,height,depth,shiftx,shifty,widthx,widthy,**kwargs):
+
+        Fs = []
+        # print(f"p={self._manager.positions}")
+        for qs in self._manager.positions:
+            x = qs[0]
+            y = qs[1]
+            exp1 = numpy.exp(-((x + shiftx) ** 2 + (y + shifty) ** 2) / (2 * widthy))
+            exp2 = numpy.exp(-((x - shiftx) ** 2 + (y - shifty) ** 2) / (2 * widthy))
+            newF = []
+            newF.append(x*height*numpy.exp(-(x**2)/(2*widthx))/widthx-4*tailsx*x**3-depth/widthy*(exp1*(x+shiftx)+exp2*(x-shiftx)))
+            newF.append(-6*tailsy*y**5-depth/widthy*(exp1*(y+shifty)+exp2*(y-shifty)))
+            Fs.append(newF)
+        # print(f"Fs={Fs}")
         return numpy.array(Fs)

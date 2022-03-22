@@ -98,4 +98,4 @@ class propagator():
         return self._manager.dt*resetRate>numpy.random.uniform()
 
     def reset_Constant(self,iterationStep,resetStep,**kwargs):
-        return iterationStep==resetStep
+        return iterationStep>=resetStep and iterationStep%resetStep==0
