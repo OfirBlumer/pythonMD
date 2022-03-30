@@ -141,26 +141,6 @@ class manager():
 
     def run(self, Niterations, savePositions=100,saveMomentum=100,saveStats=100, printStats=100,
             resetMethod=None,resetSameMomentum=True, stopCriterion=None, LJ=None,**kwargs):
-        """
-        The simulation's main function, in which the main loop is executed
-
-        :param Niterations: number of steps in the simulation (int)
-        :param savePositions: the rate at which the positions are saved, each savePositions steps (int)
-        :param printStats: the rate at which the temperatures and energies are printed and saved, each savePositions steps (int)
-        :param resetMethod: optional, default is None.
-                            Else, the method by which resetting occurs (see propagator class' reset function)
-        :param stopCriterion: A str of a Boolean statement that is used for an if check;
-                              stops the simulation of the criterion is reached
-        :param LJ: optional, for LJ potential. A dictionary with the LJ parameters. holds a key named "{type1}-{type2}"
-                   for each pair of types in the simulation. Each pair holds two keys with LJ parameters:
-                   "epsilon", which should contain a parameter with units of energy, and
-                   "sigma", which should contain a parameter with units of length
-        :param kwargs: Any additional parameters that may be needed for the resetting,
-                       propagation or calculation of potential energy
-        :return: a dictionary with a list of positions , temperatures and energies at different times
-        """
-        # print(f"Start running for {Niterations} iterations")
-        # print("Timestep Temperature KineticEnergy PotentialEnergy TotalEnergy")
         if isinstance(LJ,dict):
             newkeys = []
             newkeysvals = []
@@ -181,25 +161,28 @@ class manager():
         potentialEnergyList = []
         totalEnergyList = []
         momentum = []
-        for i in range(Niterations):
-            # print(i)
-            # print(self.positions)
-            # if stopCriterion is not None:
-            #     if eval(stopCriterion):
-            #         print(f"Stopped because fulfilled criterion after {i} steps")
-            #         break
-            # if self.positions[0][0]<0:
-            #     print(f"Stopped because fulfilled criterion after {i} steps")
-            #     break
-            restarted = self._prop.reset(resetMethod=resetMethod, iterationStep=i, **kwargs)
-            if restarted:
-                print("Resetting...")
-                self.positions = self._initialProps["positions"]
+        totnstep = None
+        i = 0
+        while i < Niterations - 1:
+            startStep = i
+            if resetMethod is not None:
+                nextReset = self._prop.reset(resetMethod=resetMethod, **kwargs)
+                self.positions = numpy.copy(self._initialProps["positions"])
                 if resetSameMomentum:
-                    self.momentums = self._initialProps["momentum"]
+                    self.momentums = numpy.copy(self._initialProps["momentum"])
                 else:
-                    self.momentums = self._initialize.getMomentums(**self._initialProps["momentumArgs"])
+                    self.momentums = numpy.copy(self._initialize.getMomentums(**self.initialProps["momentumArgs"]))
+                print(f"next reset in {nextReset} steps")
+                finalStep = min(i + nextReset, Niterations)
             else:
+                finalStep = Niterations
+            for j in range(startStep,finalStep):
+                i+=1
+                if self.positions[0][0]<0:
+                    print(f"Stopped because fulfilled criterion after {i} steps")
+                    totnstep = i
+                    i = Niterations
+                    break
                 self._prop.propagate(LJ=LJ,**kwargs)
                 if i >= savePositions and i%savePositions==0:
                     positions.append(numpy.copy(self.positions))
@@ -211,17 +194,14 @@ class manager():
                     potentialEnergy = self.forces.calculatePotentialEnergy(LJ=LJ,**kwargs)*energyToJ
                     T = 2*kineticEnergy/(kb_si)/self.dimensions/self.N
                     Ts.append(T),
-                    # kineticEnergyList.append(kineticEnergy*Na/self.N)
-                    # potentialEnergyList.append(potentialEnergy*Na/self.N)
-                    # totalEnergyList.append((kineticEnergy+potentialEnergy)*Na/self.N)
                     kineticEnergyList.append(kineticEnergy)
                     potentialEnergyList.append(potentialEnergy)
                     totalEnergyList.append((kineticEnergy+potentialEnergy))
                     if i >= printStats and i%printStats==0:
-                        # print(i,T,kineticEnergy*Na/self.N,potentialEnergy*Na/self.N,(kineticEnergy+potentialEnergy)*Na/self.N)
                         print(i, T, kineticEnergy, potentialEnergy ,(kineticEnergy + potentialEnergy) )
+        totnstep = i if totnstep is None else totnstep
         return {"positions":positions,"momenta":momentum,"T":Ts,"kineticEnergy":kineticEnergyList,
-                "potentialEnergy":potentialEnergyList, "totalEnergy":totalEnergyList,"nsteps":i}
+                "potentialEnergy":potentialEnergyList, "totalEnergy":totalEnergyList,"nsteps":totnstep}
 
     def makePositionsFile(self,positions,save=None):
         """

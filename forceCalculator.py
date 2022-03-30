@@ -271,9 +271,9 @@ class forceCalculator():
         for qs in self._manager.positions:
             x = qs[0]
             y = qs[1]
-            potE += -depth*numpy.exp(-((y+shifty)**2+(x+shiftx)**2)/(2*widthy))-\
-                    depth*numpy.exp(-((y-shifty)**2+(x-shiftx)**2)/(2*widthy))+\
-                    tailsy*y**6+tailsx*x**4+height*numpy.exp(-x**2/(2*widthx))
+            potE += -depth*numpy.exp(-((y+shifty)**2)/(2*widthy)-((x+shiftx)**2)/(2*widthx))-\
+                     depth*numpy.exp(-((y-shifty)**2)/(2*widthy)-((x-shiftx)**2)/(2*widthx))+\
+                     tailsy*y**4+tailsx*x**4+height*numpy.exp(-x**2/(2*widthx))
         # print(f"potE={potE}")
         return potE
 
@@ -284,11 +284,38 @@ class forceCalculator():
         for qs in self._manager.positions:
             x = qs[0]
             y = qs[1]
-            exp1 = numpy.exp(-((x + shiftx) ** 2 + (y + shifty) ** 2) / (2 * widthy))
-            exp2 = numpy.exp(-((x - shiftx) ** 2 + (y - shifty) ** 2) / (2 * widthy))
+            exp1 = numpy.exp(-((y + shifty) ** 2) / (2 * widthy)-((x+shiftx)**2)/(2*widthx))
+            exp2 = numpy.exp(-((y - shifty) ** 2) / (2 * widthy)-((x-shiftx)**2)/(2*widthx))
             newF = []
-            newF.append(x*height*numpy.exp(-(x**2)/(2*widthx))/widthx-4*tailsx*x**3-depth/widthy*(exp1*(x+shiftx)+exp2*(x-shiftx)))
-            newF.append(-6*tailsy*y**5-depth/widthy*(exp1*(y+shifty)+exp2*(y-shifty)))
+            newF.append(x*height*numpy.exp(-(x**2)/(2*widthx))/widthx-4*tailsx*x**3-depth/widthx*(exp1*(x+shiftx)+exp2*(x-shiftx)))
+            newF.append(-4*tailsy*y**3-depth/widthy*(exp1*(y+shifty)+exp2*(y-shifty)))
+            Fs.append(newF)
+        # print(f"Fs={Fs}")
+        return numpy.array(Fs)
+
+    def calculatePotentialEnergy_Resseting2DIrishBridge(self, tailsx,tailsy,height,depth,widthx,widthy,**kwargs):
+
+        potE = 0
+        # print(f"p={self._manager.positions}")
+        for qs in self._manager.positions:
+            x = qs[0]
+            y = qs[1]
+            potE += -depth*numpy.exp(-(y**2)/(2*widthy)-(x**2)/(2*widthx))+\
+                     tailsy*y**4+tailsx*x**4+height*numpy.exp(-x**2/(2*widthx))
+        # print(f"potE={potE}")
+        return potE
+
+    def calculateForce_Resseting2DIrishBridge(self,tailsx,tailsy,height,depth,widthx,widthy,**kwargs):
+
+        Fs = []
+        # print(f"p={self._manager.positions}")
+        for qs in self._manager.positions:
+            x = qs[0]
+            y = qs[1]
+            exp1 = numpy.exp(-(y ** 2) / (2 * widthy)-(x**2)/(2*widthx))
+            newF = []
+            newF.append(x*height*numpy.exp(-(x**2)/(2*widthx))/widthx-4*tailsx*x**3-x*depth/widthx*exp1)
+            newF.append(-4*tailsy*y**3-y*depth/widthy*exp1)
             Fs.append(newF)
         # print(f"Fs={Fs}")
         return numpy.array(Fs)

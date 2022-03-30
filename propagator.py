@@ -49,7 +49,8 @@ class propagator():
         """
         kT = kb_simUnits * temperature
         exponent = numpy.exp((-gamma*dt/2))
-        self._manager.momentums = self._manager.momentums*exponent+((self._manager.masses*kT)*(1-exponent**2))**0.5*numpy.random.standard_normal()
+        self._manager.momentums = self._manager.momentums*exponent+((self._manager.masses*kT)*(1-exponent**2))\
+                                  **0.5*numpy.random.standard_normal(numpy.shape(self._manager.momentums))
 
     def propagate_CSVR(self,dt, gamma=None, temperature=None,**kwargs):
         """
@@ -95,7 +96,7 @@ class propagator():
         return False if resetMethod is None else getattr(self, f"reset_{resetMethod}")(**kwargs)
 
     def reset_Poisson(self,resetRate,**kwargs):
-        return self._manager.dt*resetRate>numpy.random.uniform()
+        return int(numpy.random.exponential(resetRate))
 
-    def reset_Constant(self,iterationStep,resetStep,**kwargs):
-        return iterationStep>=resetStep and iterationStep%resetStep==0
+    def reset_Constant(self,resetStep,**kwargs):
+        return resetStep
