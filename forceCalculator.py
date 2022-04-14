@@ -45,6 +45,8 @@ class forceCalculator():
         Fs = []
         for fstyle in self.forceList:
             Fs.append(getattr(self,f"calculateForce_{fstyle}")(**kwargs))
+        for CV in self.manager.metaDynamics.CVs:
+            Fs.append(getattr(self.manager.metaDynamics, f"calculateForce_{CV['type']}")(**CV))
         return sum(Fs)
 
     def calculateForce_CoordsEquationPotential(self, forceEquations,**kwargs):

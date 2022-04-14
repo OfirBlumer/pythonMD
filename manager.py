@@ -3,6 +3,7 @@ withUnits = False
 from .initialization import initialization
 from .propagator import propagator
 from .forceCalculator import forceCalculator
+from .metaDynamics import metaDynamics
 if withUnits:
     from unum.units import *
 import numpy
@@ -26,6 +27,11 @@ class manager():
     _boundariesType = None
     _atomTypes = None
     _initialProps = None
+    _metaDynamics = None
+
+    @property
+    def metaDynamics(self):
+        return self._metaDynamics
     @property
     def atomTypes(self):
         return self._atomTypes
@@ -82,7 +88,7 @@ class manager():
         self._dt=newdt
 
     def __init__(self,dt,boundaries=None,boundariesType="periodic",prop=[("VelocityVerlet",1.)],momentum="MaxwellBoltzmann",
-                 forces=["LJ"],dimensions=1,cutoff=None,seed=0):
+                 forces=["LJ"],dimensions=1,cutoff=None,seed=0,metaDynamicsDict={}):
         """
         This class manage the simulation. It holds the simulation data and
         calls the acting functions that propagates the simulation.
@@ -122,6 +128,7 @@ class manager():
         self._boundaries=boundaries
         self._boundariesType=boundariesType
         numpy.random.seed(seed)
+        self._metaDynamics = metaDynamics(manager=self,**metaDynamicsDict)
 
     def initialize(self,positions,masses,types=None,**kwargs):
         """
@@ -178,11 +185,12 @@ class manager():
                 finalStep = Niterations
             for j in range(startStep,finalStep):
                 i+=1
-                if self.positions[0][0]<0:
-                    print(f"Stopped because fulfilled criterion after {i} steps")
-                    totnstep = i
-                    i = Niterations
-                    break
+                # if self.positions[0][0]<0:
+                #     print(f"Stopped because fulfilled criterion after {i} steps")
+                #     totnstep = i
+                #     i = Niterations
+                #     break
+                self.metaDynamics.metaManager(i)
                 self._prop.propagate(LJ=LJ,**kwargs)
                 if i >= savePositions and i%savePositions==0:
                     positions.append(numpy.copy(self.positions))
@@ -201,7 +209,7 @@ class manager():
                         print(i, T, kineticEnergy, potentialEnergy ,(kineticEnergy + potentialEnergy) )
         totnstep = i if totnstep is None else totnstep
         return {"positions":positions,"momenta":momentum,"T":Ts,"kineticEnergy":kineticEnergyList,
-                "potentialEnergy":potentialEnergyList, "totalEnergy":totalEnergyList,"nsteps":totnstep}
+                "potentialEnergy":potentialEnergyList, "totalEnergy":totalEnergyList,"nsteps":totnstep,"hills":self.metaDynamics.hills}
 
     def makePositionsFile(self,positions,save=None):
         """
