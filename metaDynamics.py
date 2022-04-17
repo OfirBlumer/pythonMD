@@ -9,6 +9,7 @@ class metaDynamics():
     _CVs = None
     _hills = None
     _width = None
+    _sigma = None
     _height = None
     _biasFactor = None
     _pace = None
@@ -35,6 +36,7 @@ class metaDynamics():
         self._hills = {}
         for CV in CVs:
             self._hills[CV["type"]]=[]
+        self._sigma = sigma
         self._width = sigma**2
         self._height = height
         self._biasFactor = biasFactor
@@ -56,6 +58,7 @@ class metaDynamics():
         newF = 0
         q = self.manager.positions[0][axis]
         for center in self._hills["singleParticlePosition"]:
-            newF += (q-center)*self._height * numpy.exp(-(q-center)**2/(2*self._width))/self._width
+            if abs(q-center) < 3*self._sigma:
+                newF += (q-center)*self._height * numpy.exp(-(q-center)**2/(2*self._width))/self._width
         Fs[axis] = newF
         return numpy.array(Fs)
