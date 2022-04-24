@@ -83,7 +83,7 @@ class metaDynamics():
         Fs[axis] = newF
         return numpy.array(Fs)
 
-    def getFES(self,file, paceOverFileStep,temperature):
+    def getFES(self,file,hillsFile,temperature,bins=50):
         """
         Get the free energy surface based on the different CVs
         :param file: The file which is used to calculate the FES (str)
@@ -95,11 +95,11 @@ class metaDynamics():
         """
         fesDataframes = []
         for CV in self.CVs:
-            fesDataframes.append(getattr(self, f"getFES_{CV['type']}")(file, paceOverFileStep,temperature,**CV))
+            fesDataframes.append(getattr(self, f"getFES_{CV['type']}")(file,hillsFile,temperature,bins=bins,**CV))
 
         return fesDataframes if len(fesDataframes)>1 else fesDataframes[0]
 
-    def getFES_singleParticlePosition(self, file, paceOverFileStep,temperature,axis=0,bins=50,**kwargs):
+    def getFES_singleParticlePosition(self, file,hillsFile,temperature,axis=0,bins=50,**kwargs):
         """
         Get the free energy surface based on the singleParticlePosition CV.
         Currently works only for 2D simulations.
@@ -112,17 +112,22 @@ class metaDynamics():
         """
         with open(file, "r") as newfile:
             lines = newfile.readlines()
-
         coords = []
         for dim in range(self._manager.dimensions):
             coords.append([float(line.split(" ")[dim]) for line in lines[2:]])
 
+        with open(hillsFile, "r") as newfile:
+            lines = newfile.readlines()
+        hills = []
+        for line in lines:
+            hills.append(float(line))
         weights = []
         for i in range(len(coords[axis])):
+            coord = coords[axis][i]
             bias = 0
-            for j in range(int(i/paceOverFileStep)):
-                if abs(coords[axis][i] - coords[axis][j]) < 3*self._sigma:
-                    bias += self._height * numpy.exp(-(coords[axis][i] - coords[axis][j]) ** 2 / 2*(self._width))
+            for hill in hills[:int(i*len(hills)/len(coords[axis][2:]))]:
+                if abs(coord - hill) < 3*self._sigma:
+                    bias += self._height * numpy.exp(-(coord - hill) ** 2 / 2*(self._width))
             weights.append(numpy.exp(bias / (temperature*kb_simUnits)))
 
         if self._manager.dimensions==2:
@@ -133,6 +138,12 @@ class metaDynamics():
             dataframe = xarray.DataArray(data=H, coords={"x": gridxs, "y": gridys}).to_dataframe(name="Pr").reset_index()
             dataframe = dataframe.loc[dataframe.Pr > 0.0]
             dataframe["fes"] = -temperature*kb_simUnits * numpy.log(dataframe.Pr)
+        elif self._manager.dimensions==1:
+            H, xedges = numpy.histogram(coords[0], density=True, bins=bins, weights=weights)
+            gridxs = [(xedges[i] + xedges[i - 1]) / 2 for i in range(1, len(xedges))]
+            dataframe = xarray.DataArray(data=H, coords={"x": gridxs}).to_dataframe(name="Pr").reset_index()
+            dataframe = dataframe.loc[dataframe.Pr > 0.0]
+            dataframe["fes"] = -temperature*kb_simUnits * numpy.log(dataframe.Pr)
         else:
-            raise NotImplementedError("Currently, calculations of FES are implemented only for 2D simulations")
+            raise NotImplementedError("Currently, calculations of FES are implemented only for 1/2D simulations")
         return dataframe
