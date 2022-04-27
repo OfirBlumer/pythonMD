@@ -30,7 +30,7 @@ class metaDynamics():
     def hills(self):
         return self._hills
 
-    def __init__(self,manager,CVs=[],sigma=1,height=1,pace=500,biasFactor=None,temperature=None):
+    def __init__(self,manager,CVs=[],sigma=1,height=1,pace=500,biasFactor=None,temperature=None, hills={}):
         """
         This class supports performing metaDynamics simulations
         :param CVs: A list of CVs, each a dictionary with the CV type and its parameters.
@@ -47,7 +47,8 @@ class metaDynamics():
         self._CVs = CVs
         self._hills = {}
         for CV in CVs:
-            self._hills[CV["type"]]=[]
+            self._hills[CV["type"]]= hills[CV["type"]] if CV["type"] in hills.keys() else []
+
         self._sigma = sigma
         self._width = sigma**2
         self._height = height
@@ -95,7 +96,7 @@ class metaDynamics():
         Fs[axis] = newF
         return numpy.array(Fs)
 
-    def getFES(self,file,hillsFile,temperature,bins=50):
+    def getFES(self,file,hillsFile,temperature,bins=50,hillsFromStart=False):
         """
         Get the free energy surface based on the different CVs
         :param file: The file which is used to calculate the FES (str)
@@ -111,7 +112,7 @@ class metaDynamics():
 
         return fesDataframes if len(fesDataframes)>1 else fesDataframes[0]
 
-    def getFES_singleParticlePosition(self, file,hillsFile,temperature,axis=0,bins=50,**kwargs):
+    def getFES_singleParticlePosition(self, file,hillsFile,temperature,axis=0,bins=50,hillsFromStart=False,**kwargs):
         """
         Get the free energy surface based on the singleParticlePosition CV.
         Currently works only for 2D simulations.
@@ -128,26 +129,45 @@ class metaDynamics():
         for dim in range(self._manager.dimensions):
             coords.append([float(line.split(" ")[dim]) for line in lines[2:]])
 
-        with open(hillsFile, "r") as newfile:
-            lines = newfile.readlines()
-        hills = []
-        if len(lines)>0:
-            if len(lines[0].split(" "))==1:
-                for line in lines:
-                    line = line.replace("(","").replace(")","").replace(",","")
-                    hills.append((float(line.split(" ")[0]), self._height))
-            else:
-                for line in lines:
-                    line = line.replace("(", "").replace(")", "").replace(",", "")
-                    hills.append((float(line.split(" ")[0]),float(line.split(" ")[1])))
+        positions,heights = self._getHillsFromFile(hillsFile)
+        if self._biasFactor is not None:
+            xs = [(numpy.min(positions) - 3 * self._sigma) * (i + 0.5) * (max(positions) + 6 * self._sigma - numpy.min(positions)) / (bins + 1) for i in range(bins)]
+            xbiases = [0 for x in xs]
         weights = []
-        for i in range(len(coords[axis])):
-            coord = coords[axis][i]
-            bias = 0
-            for hill in hills[:int(i*len(hills)/len(coords[axis]))]:
-                if abs(coord - hill[0]) < 3*self._sigma:
-                    bias += hill[1] * numpy.exp(-(coord - hill[0]) ** 2 / 2*(self._width))
-            weights.append(numpy.exp(bias / (temperature*kb_simUnits)))
+        if hillsFromStart:
+            for i in range(len(coords[axis])):
+                coord = coords[axis][i]
+                bias = 0
+                for position,height in zip(positions,heights):
+                    if abs(coord - position) < 3 * self._sigma:
+                        bias += height * numpy.exp(-(coord - position) ** 2 / 2 * (self._width))
+                weights.append(numpy.exp(bias / (temperature * kb_simUnits)))
+        else:
+            j = 0
+            for i in range(len(coords[axis])):
+                coord = coords[axis][i]
+                bias = 0
+                numerator = 0
+                denominator = 0
+                cbias = 0
+
+                if self._biasFactor is not None:
+                    for x in range(len(xs)):
+                        if int(i*len(positions)/len(coords[axis]))>j:
+                            position = positions[int(i*len(positions)/len(coords[axis]))-1]
+                            height = heights[int(i*len(positions)/len(coords[axis]))-1]
+                            if abs(xs[x] - position) < 3 * self._sigma:
+                                xbiases[x] += height * numpy.exp(-(xs[x] - position) ** 2 / 2*(self._width))
+                        numerator += numpy.exp(self._biasFactor*xbiases[x]/(kb_simUnits*temperature*(self._biasFactor-1)))
+                        denominator += numpy.exp(xbiases[x]/(kb_simUnits*temperature*(self._biasFactor-1)))
+                    cbias += numpy.log(numerator/denominator) # https://www.annualreviews.org/doi/10.1146/annurev-physchem-040215-112229
+
+                j = int(i*len(positions)/len(coords[axis]))
+                for position,height in zip(positions[:j],heights[:j]):
+                    if abs(coord - position) < 3*self._sigma:
+                        bias += height * numpy.exp(-(coord - position) ** 2 / 2*(self._width))
+
+                weights.append(numpy.exp(bias / (temperature*kb_simUnits) - cbias))
 
         if self._manager.dimensions==2:
 
@@ -166,3 +186,36 @@ class metaDynamics():
         else:
             raise NotImplementedError("Currently, calculations of FES are implemented only for 1/2D simulations")
         return dataframe
+
+    def sumHills(self,hillsFile,bins=50):
+
+        positions,heights = self._getHillsFromFile(hillsFile)
+        xs = [(numpy.min(positions)-3*self._sigma)*(i+0.5)*(max(positions)+6*self._sigma-numpy.min(positions))/(bins+1) for i in range(bins)]
+        ys = []
+        for x in xs:
+            y = 0
+            for position,height in zip(positions,heights):
+                y -= height*numpy.exp(-(x - position) ** 2 / 2*(self._width))
+            ys.append(y)
+        miny = numpy.min(ys)
+        ys = [y-miny for y in ys]
+        return xs, ys
+
+    def _getHillsFromFile(self,hillsFile):
+
+        with open(hillsFile, "r") as newfile:
+            lines = newfile.readlines()
+        positions = []
+        heights = []
+        if len(lines)>0:
+            if len(lines[0].split(" "))==1:
+                for line in lines:
+                    line = line.replace("(","").replace(")","").replace(",","")
+                    positions.append(float(line.split(" ")[0]))
+                    heights.append(self._height)
+            else:
+                for line in lines:
+                    line = line.replace("(", "").replace(")", "").replace(",", "")
+                    positions.append(float(line.split(" ")[0]))
+                    heights.append(float(line.split(" ")[1]))
+        return positions,heights
