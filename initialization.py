@@ -130,3 +130,6 @@ class initialization():
                 psi = numpy.random.uniform() * numpy.pi
                 Momentums.append([numpy.cos(phi) * numpy.sin(psi) * V*mass, numpy.sin(phi) * numpy.sin(psi) * V*mass, numpy.cos(psi) * V*mass])
         return numpy.array(Momentums)
+
+    def getMomentums_initialVelocities(self,velocities,**kwargs):
+        return numpy.array(velocities)*self._manager.masses

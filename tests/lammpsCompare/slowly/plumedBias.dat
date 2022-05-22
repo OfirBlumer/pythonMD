@@ -1,0 +1,18 @@
+UNITS LENGTH=A ENERGY=kcal/mol
+p: POSITION ATOM=1
+
+METAD ...
+ ARG=p.x
+ SIGMA=0.5
+ HEIGHT=0.5
+ PACE=1 # Every 500 steps is standard
+ BIASFACTOR=10
+ TEMP=300 # Temperature in K
+ LABEL=metad
+ CALC_RCT
+ GRID_MIN=0
+ GRID_MAX=10
+ GRID_BIN=100
+... METAD
+
+PRINT STRIDE=1  ARG=* FILE=COLVAR

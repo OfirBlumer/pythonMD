@@ -17,6 +17,8 @@ class metaDynamics():
     _biasFactor = None
     _T0 = None
     _pace = None
+    _grid = None
+    _xbiases = None
 
     @property
     def manager(self):
@@ -30,7 +32,7 @@ class metaDynamics():
     def hills(self):
         return self._hills
 
-    def __init__(self,manager,CVs=[],sigma=1,height=1,pace=500,biasFactor=None,temperature=None, hills={}):
+    def __init__(self,manager,CVs=[],sigma=1,height=1,pace=500,biasFactor=None,temperature=None, hills={},grid=None):
         """
         This class supports performing metaDynamics simulations
         :param CVs: A list of CVs, each a dictionary with the CV type and its parameters.
@@ -56,6 +58,8 @@ class metaDynamics():
         self._pace = pace
         if biasFactor is not None:
             self._T0 = temperature*(biasFactor-1)
+            self._grid = grid
+            self._xbiases = [0 for x in self._grid]
 
     def metaManager(self,step):
         """
@@ -72,15 +76,27 @@ class metaDynamics():
         :param axis: The index of the coordinate (int)
         """
         height = self._height
+
+        bias = 0
+        numerator = 0
+        denominator = 0
+        cbias = 0
+        q = self.manager.positions[0][axis]
+        for hill in self._hills["singleParticlePosition"]:
+            if abs(q - hill[0]) < 3 * self._sigma:
+                bias += hill[1] * numpy.exp(-(q - hill[0]) ** 2 / (2 * self._width))
+
         if self._biasFactor is not None:
-            V = 0
-            q = self.manager.positions[0][axis]
-            for hill in self._hills["singleParticlePosition"]:
-                if abs(q - hill[0]) < 3 * self._sigma:
-                    V += hill[1] * numpy.exp(-(q - hill[0]) ** 2 / (2 * self._width))
-                    height *= numpy.exp(-V/(kb_simUnits*self._T0))
-        if height/self._height>0.01:
-            self._hills["singleParticlePosition"].append((self.manager.positions[0][axis],height))
+            height *= numpy.exp(-bias / (kb_simUnits * self._T0))
+            for x in range(len(self._grid)):
+                numerator += numpy.exp(self._biasFactor * self._xbiases[x] / (kb_simUnits * self._T0))
+                denominator += numpy.exp(self._xbiases[x] / (kb_simUnits * self._T0))
+                if abs(self._grid[x]-q) < 3 * self._sigma:
+                    self._xbiases[x] += height * numpy.exp(-(self._grid[x]-q) ** 2 / (2 * self._width))
+            cbias += numpy.log(numerator / denominator)  # https://www.annualreviews.org/doi/10.1146/annurev-physchem-040215-112229
+
+        if height/self._height>0.001:
+            self._hills["singleParticlePosition"].append((self.manager.positions[0][axis],height,bias,cbias))
 
     def calculateForce_singleParticlePosition(self,axis=0,**kwargs):
         """
@@ -108,7 +124,7 @@ class metaDynamics():
         """
         fesDataframes = []
         for CV in self.CVs:
-            fesDataframes.append(getattr(self, f"getFES_{CV['type']}")(file,hillsFile,temperature,bins=bins,**CV))
+            fesDataframes.append(getattr(self, f"getFES_{CV['type']}")(file,hillsFile,temperature,bins=bins,hillsFromStart=hillsFromStart,**CV))
 
         return fesDataframes if len(fesDataframes)>1 else fesDataframes[0]
 
@@ -190,7 +206,8 @@ class metaDynamics():
     def sumHills(self,hillsFile,bins=50):
 
         positions,heights = self._getHillsFromFile(hillsFile)
-        xs = [(numpy.min(positions)-3*self._sigma)*(i+0.5)*(max(positions)+6*self._sigma-numpy.min(positions))/(bins+1) for i in range(bins)]
+        xs = [(numpy.min(positions)-3*self._sigma)+(i+0.5)*(max(positions)+6*self._sigma-numpy.min(positions))/(bins+1) for i in range(bins)]
+
         ys = []
         for x in xs:
             y = 0

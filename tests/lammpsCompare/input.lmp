@@ -1,0 +1,32 @@
+dimension 2
+units        real
+atom_style    atomic
+region        box block -500 500 -500 500 -0.025 0.025
+create_box    1 box
+create_atoms    1 single 10.0 0.0 0.0
+mass        1 1.0
+
+pair_style      none
+
+variable widthx equal 10
+variable widthy equal 100
+variable height equal 7.173532800000001
+variable depth equal 2.3911776000000007
+variable tailsx equal 9.564710400000002e-06
+variable tailsy equal 2.3911776000000007e-07
+
+variable exp1 atom exp(-(y^2)/(2*v_widthy)-(x^2)/(2*v_widthx))
+variable fx atom x*v_height*exp(-(x^2)/(2*v_widthx))/v_widthx-4*v_tailsx*x^3-x*v_depth/v_widthx*v_exp1
+variable fy atom -4*v_tailsy*y^3-y*v_depth/v_widthy*v_exp1
+
+fix harm all addforce v_fx v_fy 0.0
+
+thermo 1000000
+dump dum1 all custom 50 dump_output.lammpstrj type x y z
+
+fix        plum all plumed plumedfile plumedBias.dat
+fix        1 all nve
+fix        2 all langevin 300 300 100.0 699483
+fix        3 all enforce2d
+
+run        1000000

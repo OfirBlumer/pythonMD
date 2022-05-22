@@ -1,0 +1,18 @@
+UNITS LENGTH=A ENERGY=kcal/mol
+p: POSITION ATOM=1
+
+METAD ...
+ ARG=p.x
+ SIGMA=0.5
+ HEIGHT=0.2988972000000001
+ PACE=500 # Every 500 steps is standard
+ BIASFACTOR=16 # A barrier of 50 kT will be reduced to 1 kT once the bias is converged
+ TEMP=300 # Temperature in K
+ LABEL=metad
+ CALC_RCT
+ GRID_MIN=-50
+ GRID_MAX=50
+ GRID_BIN=100
+... METAD
+
+PRINT STRIDE=500  ARG=* FILE=COLVAR
